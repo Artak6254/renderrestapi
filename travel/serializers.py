@@ -3,7 +3,7 @@ from .models import (
     Logo, Navbars, SubnavbarsList, HomepageBookingSearch,
     CalendarFieldList,PassangerFieldList,
     HomePageIntro, HomePageWhyChooseUs, ReasonsList, 
-    HomePageFaq, HomePageQuestion, Footer
+    HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial
 )
 
 class SubnavbarsListSerializer(serializers.ModelSerializer):
@@ -113,7 +113,35 @@ class HomePageFaqSerializer(serializers.ModelSerializer):
 
         return homepage_faq
 
+
+class FooterLinksSerializer(serializers.ModelSerializer):
+      class Meta:
+          model = FooterLinks
+          field = ['id', 'lang', 'title', 'url']
+
+class FooterSocialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FooterSocial
+        field = ['id', 'lang', 'title', 'url']         
+
 class FooterSerializer(serializers.ModelSerializer):
+    links = FooterLinksSerializer(many=True, required=False)  
+    social = FooterSocialSerializer(many=True, required=False)  # Added this line
+
     class Meta:
         model = Footer
-        fields = ['id', 'lang', 'title', 'url'] 
+        fields = ['id', 'lang','links', 'social'] 
+        
+        def create(self, validated_data):
+            links_data = validated_data.pop('links', [])
+            social_data = validated_data.pop('social', [])  # Extract passangers data
+
+            footer_data = Footer.objects.create(**validated_data)
+
+            for link in links_data:
+                FooterLinks.objects.create(footer_links=footer_data, **link)  # Ensure correct ForeignKey
+
+            for social in social_data:
+                FooterSocial.objects.create(footer_social=footer_data, **social)  # Ensure correct ForeignKey
+
+            return footer_data

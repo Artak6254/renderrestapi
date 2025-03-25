@@ -106,10 +106,33 @@ class HomePageQuestion(models.Model):
     def __str__(self):
         return f"{self.lang} {self.question} {self.answer}"
                       
+                   
 class Footer(models.Model):
+    lang = models.CharField(max_length=20)
+    
+                          
+class FooterLinks(models.Model):
+    footer = models.ForeignKey(
+        Footer, 
+        on_delete=models.CASCADE, 
+        related_name="links"  
+    )
     lang = models.CharField(max_length=10)
     title = models.CharField(max_length=255) 
     url = models.URLField()
     
     def __str__(self):
         return f"{self.lang} {self.title} {self.url}"
+
+class FooterSocial(models.Model):
+    footer = models.ForeignKey(
+        Footer, 
+        on_delete=models.CASCADE, 
+        related_name="social"  
+    )
+    lang = models.CharField(max_length=10)
+    title = models.CharField(max_length=255) 
+    url = models.URLField()
+    
+    def __str__(self):
+        return f"{self.lang} {self.title} {self.url}"    
