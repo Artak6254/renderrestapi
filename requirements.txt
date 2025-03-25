@@ -22,3 +22,4 @@ tzdata==2024.2
 urllib3==2.3.0
 virtualenv==20.28.0
 gunicorn
+dj-database-url==2.3.0
