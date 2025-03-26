@@ -1,88 +1,57 @@
 from rest_framework import viewsets
+from rest_framework import permissions
+from travel.permissions import IsAdminOrOwner
 from .models import (
     Logo, Navbars, HomepageBookingSearch,
     HomePageIntro, HomePageWhyChooseUs, 
-    HomePageFaq,  Footer
+    HomePageFaq, Footer
 )
 from .serializers import (
-     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
-     HomePageIntroSerializer, HomePageWhyChooseUsSerializer,
-     HomePageFaqSerializer, FooterSerializer
+    LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
+    HomePageIntroSerializer, HomePageWhyChooseUsSerializer,
+    HomePageFaqSerializer, FooterSerializer
 )
 
 
-class LogoViewSet(viewsets.ModelViewSet):
+class LangFilteredViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        queryset = self.queryset  
+        lang = self.request.query_params.get('lang')  
+        if lang:
+            queryset = queryset.filter(lang=lang)  
+        return queryset
+
+class LogoViewSet(LangFilteredViewSet):
     queryset = Logo.objects.all()
     serializer_class = LogoSerializer
-
-class NavbarsViewSet(viewsets.ModelViewSet):
-    queryset = Navbars.objects.all()  # Ավելացնել queryset
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+   
+class NavbarsViewSet(LangFilteredViewSet):
+    queryset = Navbars.objects.all()
     serializer_class = NavbarsSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-    def get_queryset(self):
-        lang = self.request.query_params.get('lang')  
-        if lang:
-            return Navbars.objects.filter(lang=lang) 
-        return Navbars.objects.all()  
-
-    
-
-class HomePageIntroViewSet(viewsets.ModelViewSet):
+class HomePageIntroViewSet(LangFilteredViewSet):
     queryset = HomePageIntro.objects.all()
     serializer_class = HomePageIntroSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
-    def get_queryset(self):
-        lang = self.request.query_params.get('lang')  
-        if lang:
-            return HomePageIntro.objects.filter(lang=lang) 
-        return HomePageIntro.objects.all()  
-
-
-
-class BookingSearchViewSet(viewsets.ModelViewSet):
+class BookingSearchViewSet(LangFilteredViewSet):
     queryset = HomepageBookingSearch.objects.all()
     serializer_class = BookingSearchSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-    def get_queryset(self):
-        lang = self.request.query_params.get('lang')  
-        if lang:
-            return HomepageBookingSearch.objects.filter(lang=lang) 
-        return HomepageBookingSearch.objects.all()  
+class HomePageWhyChooseUsViewSet(LangFilteredViewSet):
+    queryset = HomePageWhyChooseUs.objects.all()
+    serializer_class = HomePageWhyChooseUsSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-class HomePageWhyChooseUsViewSet(viewsets.ModelViewSet):
-     queryset = HomePageWhyChooseUs.objects.all()
-     serializer_class = HomePageWhyChooseUsSerializer
-    
-     def get_queryset(self):
-        lang = self.request.query_params.get('lang')  
-        if lang:
-            return HomePageWhyChooseUs.objects.filter(lang=lang) 
-        return HomePageWhyChooseUs.objects.all()  
-
-
-
-class HomePageFaqViewSet(viewsets.ModelViewSet):
+class HomePageFaqViewSet(LangFilteredViewSet):
     queryset = HomePageFaq.objects.all()
     serializer_class = HomePageFaqSerializer
-    
-    def get_queryset(self):
-        lang = self.request.query_params.get('lang')  
-        if lang:
-            return HomePageFaq.objects.filter(lang=lang) 
-        return HomePageFaq.objects.all()  
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-
-
-
-
-class FooterViewSet(viewsets.ModelViewSet):
-    queryset = Footer.objects.all()  
+class FooterViewSet(LangFilteredViewSet):
+    queryset = Footer.objects.all()
     serializer_class = FooterSerializer
-    
-    def get_queryset(self):
-        lang = self.request.query_params.get('lang')  
-        if lang:
-            return Footer.objects.filter(lang=lang) 
-        return Footer.objects.all()  
-
-               
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]

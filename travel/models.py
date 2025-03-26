@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Logo(models.Model):
-    logo = models.URLField()
+    logo = models.ImageField(upload_to="travel/static/image")
 
     def __str__(self):
         return f"{self.logo}"
@@ -25,9 +25,9 @@ class SubnavbarsList(models.Model):
 
 class HomePageIntro(models.Model):
     lang = models.CharField(max_length=20)
-    title_logo_image = models.URLField()
+    title_logo_image =models.ImageField(upload_to="travel/static/image")
     descr = models.CharField(max_length=255)
-    image = models.URLField()
+    image = models.ImageField(upload_to="travel/static/image")
 
     def __str__(self):
         return f"{self.lang} {self.title_logo_iamge} {self.descr} {self.image}"
@@ -74,8 +74,8 @@ class HomePageWhyChooseUs(models.Model):
     lang = models.CharField(max_length=20)
     title = models.CharField(max_length=120)
     sub_title = models.CharField(max_length=100)
-    image = models.URLField()
-    map_image = models.URLField()
+    image = models.ImageField(upload_to="travel/static/image")
+    map_image = models.ImageField(upload_to="travel/static/image")
 
 class ReasonsList(models.Model):
     homepage_why_choose_us = models.ForeignKey(

@@ -19,6 +19,7 @@ router.register(r'footers', FooterViewSet, basename="footers")
 
 urlpatterns = [
     path('', include(router.urls)),
+     path('api-auth/', include('rest_framework.urls')),
 ]
 
 
