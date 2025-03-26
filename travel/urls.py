@@ -18,7 +18,7 @@ router.register(r'footers', FooterViewSet, basename="footers")
 
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
 ]
 
 
