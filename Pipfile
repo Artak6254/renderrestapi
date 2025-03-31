@@ -9,6 +9,8 @@ pygments = "*"
 djangorestframework = "*"
 pillow = "*"
 psycopg2 = "*"
+django-ratelimit = "*"
+pymemcache = "*"
 
 [dev-packages]
 

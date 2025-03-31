@@ -27,6 +27,7 @@ class NavbarsSerializer(serializers.ModelSerializer):
 
         return navbar
 
+
 class LogoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Logo
@@ -114,34 +115,35 @@ class HomePageFaqSerializer(serializers.ModelSerializer):
         return homepage_faq
 
 
+
 class FooterLinksSerializer(serializers.ModelSerializer):
-      class Meta:
-          model = FooterLinks
-          field = ['id', 'lang', 'title', 'url']
+    class Meta:
+        model = FooterLinks
+        fields = ['id', 'lang', 'title', 'url']  # Fixed 'field' -> 'fields'
 
 class FooterSocialSerializer(serializers.ModelSerializer):
     class Meta:
         model = FooterSocial
-        field = ['id', 'lang', 'title', 'url']         
+        fields = ['id', 'lang', 'title', 'url']  # Fixed 'field' -> 'fields'
 
 class FooterSerializer(serializers.ModelSerializer):
     links = FooterLinksSerializer(many=True, required=False)  
-    social = FooterSocialSerializer(many=True, required=False)  # Added this line
+    social = FooterSocialSerializer(many=True, required=False)
 
     class Meta:
         model = Footer
-        fields = ['id', 'lang','links', 'social'] 
-        
-        def create(self, validated_data):
-            links_data = validated_data.pop('links', [])
-            social_data = validated_data.pop('social', [])  # Extract passangers data
+        fields = ['id', 'lang', 'links', 'social']  # Fixed 'field' -> 'fields'
 
-            footer_data = Footer.objects.create(**validated_data)
+    def create(self, validated_data):
+        links_data = validated_data.pop('links', [])
+        social_data = validated_data.pop('social', [])
 
-            for link in links_data:
-                FooterLinks.objects.create(footer_links=footer_data, **link)  # Ensure correct ForeignKey
+        footer_data = Footer.objects.create(**validated_data)
 
-            for social in social_data:
-                FooterSocial.objects.create(footer_social=footer_data, **social)  # Ensure correct ForeignKey
+        for link in links_data:
+            FooterLinks.objects.create(footer_links=footer_data, **link)  
 
-            return footer_data
+        for social in social_data:
+            FooterSocial.objects.create(footer_social=footer_data, **social)  
+
+        return footer_data

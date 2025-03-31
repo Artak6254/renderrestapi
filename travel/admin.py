@@ -53,31 +53,25 @@ class HomePageIntroAdmin(admin.ModelAdmin):
         return request.user.is_staff
 
 
+class CalendarFieldListInline(admin.TabularInline):
+    model = CalendarFieldList
+    extra = 1
+    classes = ['calendar-field-inline'] 
 
-class CalendarFieldListInline(admin.TabularInline):  
-        model = CalendarFieldList
-        extra = 1 
-    
-class PassangerFieldListInline(admin.TabularInline):  
+
+class PassengerFieldListInline(admin.TabularInline):
     model = PassangerFieldList
-    extra = 1     
-
+    extra = 1
+    classes = ['passenger-field-inline'] 
 
 
 @admin.register(HomepageBookingSearch)
 class HomepageBookingSearchAdmin(admin.ModelAdmin):
-    class Media:
-        css = {
-            'all': (static('css/custom-admin.css'),)  # Հավելում ենք custom-admin.css ֆայլը
-        }
+    inlines = [CalendarFieldListInline, PassengerFieldListInline]
 
-    list_display = ('id', 'lang', 'from_field_text', 'to_field_text', 'date_field_text')
-    search_fields = ('lang', 'from_field_text', 'to_field_text', 'date_field_text')
-    
-    inlines = [CalendarFieldListInline,PassangerFieldListInline] 
-  
     def has_change_permission(self, request, obj=None):
         return request.user.is_staff
+
 
 
 
