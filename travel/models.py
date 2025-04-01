@@ -141,7 +141,7 @@ class FooterLinks(models.Model):
     )
     lang = models.CharField(max_length=10)
     title = models.CharField(max_length=255) 
-    url = models.URLField()
+    url = models.CharField(max_length=255)
     class Meta:
         ordering = ['id'] 
     def __str__(self):
@@ -155,7 +155,7 @@ class FooterSocial(models.Model):
     )
     lang = models.CharField(max_length=10)
     title = models.CharField(max_length=255) 
-    url = models.URLField()
+    url = models.CharField(max_length=255)
     class Meta:
         ordering = ['id'] 
     def __str__(self):
