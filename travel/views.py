@@ -5,6 +5,9 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 from django.http import JsonResponse
 from rest_framework import viewsets, permissions
+from django.contrib.sessions.models import Session
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from travel.permissions import IsAdminOrOwner
 from .models import (
     Logo, Navbars, HomepageBookingSearch,
@@ -17,40 +20,27 @@ from .serializers import (
     HomePageFaqSerializer, FooterSerializer
 )
 
-
-
-#  Log կարգավորումներ
+# Log կարգավորումներ
 logger = logging.getLogger(__name__)
 
-#  Բոլոր view-երի համար base class
+# Բոլոր view-երի համար base class
 class LangFilteredViewSet(viewsets.ModelViewSet):
-    """
-    Ֆիլտրում է queryset-ը լեզվի և owner-ի հիման վրա։
-    """
     def get_queryset(self):
-        queryset = self.queryset
-        lang = self.request.query_params.get('lang')  # Get language parameter
-        user = self.request.user  # Get the current authenticated user
+        queryset = self.queryset.all().distinct()  # ORM Cache-ի շրջանցում
+        lang = self.request.query_params.get('lang')
+        user = self.request.user
         
         if lang:
             queryset = queryset.filter(lang=lang)
-        
-        # 🔹 Ֆիլտրում ենք ըստ օգտատիրոջ
         if user.is_authenticated:
             queryset = queryset.filter(owner=user)
         
         return queryset
 
-#  Անվտանգ login
+# Անվտանգ login
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 @ensure_csrf_cookie
 def my_login_view(request):
-    """
-    Հավելյալ անվտանգ login API:
-    - Session Fixation պաշտպանություն
-    - Brute-force պաշտպանության rate-limit
-    - CSRF Token վերադարձ 
-    """
     if request.method != "POST":
         return JsonResponse({"error": "Only POST requests allowed"}, status=405)
 
@@ -61,69 +51,68 @@ def my_login_view(request):
         return JsonResponse({"error": "Username and password are required"}, status=400)
 
     user = authenticate(username=username, password=password)
-
     if user is not None:
-        request.session.flush()  #  Session Fixation Attack պաշտպանություն
+        request.session.flush()
         login(request, user)
         request.session.cycle_key()
+        request.session.modified = True  # Թարմացնում ենք session-ը
 
         logger.info(f"User {user.username} logged in successfully.")
-
-        return JsonResponse({
-            "message": "Login successful",
-            "csrf_token": get_token(request)
-        }, status=200)
+        return JsonResponse({"message": "Login successful", "csrf_token": get_token(request)}, status=200)
 
     logger.warning(f"Failed login attempt for username: {username}")
-
     return JsonResponse({"error": "Invalid credentials"}, status=401)
 
 
 def my_logout_view(request):
-    """
-    Օգտատիրոջ logout անելու ֆունկցիա:
-    """
     logout(request)
+    request.session.modified = True  # Logout-ից հետո session-ի թարմացում
     return JsonResponse({"message": "Logged out successfully"}, status=200)
 
+# Signals՝ session-ի թարմացման համար
+@receiver(post_save, sender=Logo)
+@receiver(post_save, sender=Navbars)
+@receiver(post_save, sender=HomepageBookingSearch)
+@receiver(post_save, sender=HomePageIntro)
+@receiver(post_save, sender=HomePageWhyChooseUs)
+@receiver(post_save, sender=HomePageFaq)
+@receiver(post_save, sender=Footer)
+def update_session_after_save(sender, instance, **kwargs):
+    for session in Session.objects.all():
+        session.modified = True
+        session.save()
 
 class LogoViewSet(LangFilteredViewSet):
-    queryset = Logo.objects.all().order_by("id")
+    queryset = Logo.objects.all()
     serializer_class = LogoSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-
 class NavbarsViewSet(LangFilteredViewSet):
-    queryset = Navbars.objects.all().order_by("id")
+    queryset = Navbars.objects.all()
     serializer_class = NavbarsSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-
 class HomePageIntroViewSet(LangFilteredViewSet):
-    queryset = HomePageIntro.objects.all().order_by("id")
+    queryset = HomePageIntro.objects.all()
     serializer_class = HomePageIntroSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-
 class BookingSearchViewSet(LangFilteredViewSet):
-    queryset = HomepageBookingSearch.objects.all().order_by("id")
+    queryset = HomepageBookingSearch.objects.all()
     serializer_class = BookingSearchSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-
 class HomePageWhyChooseUsViewSet(LangFilteredViewSet):
-    queryset = HomePageWhyChooseUs.objects.all().order_by("id")
+    queryset = HomePageWhyChooseUs.objects.all()
     serializer_class = HomePageWhyChooseUsSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-
 class HomePageFaqViewSet(LangFilteredViewSet):
-    queryset = HomePageFaq.objects.all().order_by("id")
+    queryset = HomePageFaq.objects.all()
     serializer_class = HomePageFaqSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-
 class FooterViewSet(LangFilteredViewSet):
-    queryset = Footer.objects.all().order_by("id")
+    queryset = Footer.objects.all()
     serializer_class = FooterSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
