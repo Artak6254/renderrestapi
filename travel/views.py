@@ -8,11 +8,11 @@ from rest_framework import viewsets, permissions
 from django.contrib.sessions.models import Session
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
 from travel.permissions import IsAdminOrOwner
 from .models import (
-    Logo, Navbars, HomepageBookingSearch,
-    HomePageIntro, HomePageWhyChooseUs, 
-    HomePageFaq, Footer
+    Logo, Navbars, HomepageBookingSearch, HomePageIntro,
+    HomePageWhyChooseUs, HomePageFaq, Footer
 )
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
@@ -23,7 +23,7 @@ from .serializers import (
 # Log կարգավորումներ
 logger = logging.getLogger(__name__)
 
-# Բոլոր view-երի համար base class
+# ✅ Base class for filtering by language and user ownership
 class LangFilteredViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset.all().distinct()  # ORM Cache-ի շրջանցում
@@ -37,7 +37,7 @@ class LangFilteredViewSet(viewsets.ModelViewSet):
         
         return queryset
 
-# Անվտանգ login
+# ✅ Անվտանգ login
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 @ensure_csrf_cookie
 def my_login_view(request):
@@ -63,13 +63,13 @@ def my_login_view(request):
     logger.warning(f"Failed login attempt for username: {username}")
     return JsonResponse({"error": "Invalid credentials"}, status=401)
 
-
+# ✅ Logout View
 def my_logout_view(request):
     logout(request)
     request.session.modified = True  # Logout-ից հետո session-ի թարմացում
     return JsonResponse({"message": "Logged out successfully"}, status=200)
 
-# Signals՝ session-ի թարմացման համար
+# ✅ Signals՝ session-ի թարմացման համար
 @receiver(post_save, sender=Logo)
 @receiver(post_save, sender=Navbars)
 @receiver(post_save, sender=HomepageBookingSearch)
@@ -82,6 +82,7 @@ def update_session_after_save(sender, instance, **kwargs):
         session.modified = True
         session.save()
 
+# ✅ API ViewSets
 class LogoViewSet(LangFilteredViewSet):
     queryset = Logo.objects.all()
     serializer_class = LogoSerializer
