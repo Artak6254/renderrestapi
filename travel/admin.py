@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.sites.models import Site
 from .permissions import IsAdminOrOwner
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.templatetags.static import static
@@ -10,6 +11,7 @@ from .models import (
 )
 
 
+admin.site.unregister(Site) 
 admin.site.site_header = 'NOVAIR'
 admin.site.site_title = 'NOVAIR'
 admin.site.index_title = 'Welcome to NOVAIR Admin Panel'
