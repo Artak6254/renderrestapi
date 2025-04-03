@@ -1,8 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
+
 
 class Logo(models.Model):
-    logo = models.ImageField(upload_to="travel/static/image")
+    logo = models.ImageField(
+        upload_to="travel/static/image",
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'svg'])]
+    )
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="logos", null=True)
     
     class Meta:
@@ -35,7 +40,10 @@ class HomePageIntro(models.Model):
     lang = models.CharField(max_length=20)
     title_logo_image = models.ImageField(upload_to="travel/static/image")
     descr = models.CharField(max_length=255)
-    image = models.ImageField(upload_to="travel/static/image")
+    image = models.ImageField(
+        upload_to="travel/static/image",
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'svg'])]
+    )
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="homepageIntro", null=True)
    
     class Meta:
@@ -90,7 +98,10 @@ class HomePageWhyChooseUs(models.Model):
     lang = models.CharField(max_length=20)
     title = models.CharField(max_length=120)
     sub_title = models.CharField(max_length=100)
-    image = models.ImageField(upload_to="travel/static/image")
+    image = models.ImageField(
+        upload_to="travel/static/image",
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'svg'])]
+    )
     map_image = models.ImageField(upload_to="travel/static/image")
     class Meta:
         ordering = ['id'] 
