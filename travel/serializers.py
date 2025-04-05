@@ -3,7 +3,8 @@ from .models import (
     Logo, Navbars, SubnavbarsList, HomepageBookingSearch,
     CalendarFieldList,PassangerFieldList,
     HomePageIntro, HomePageWhyChooseUs, ReasonsList, 
-    HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial
+    HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,
+    Booking, BookingPassengers, BookingFlights
 )
 
 class SubnavbarsListSerializer(serializers.ModelSerializer):
