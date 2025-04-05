@@ -17,7 +17,7 @@ router.register(r'homepage_faq', HomePageFaqViewSet, basename="homepage_faq")
 router.register(r'footers', FooterViewSet, basename="footers")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('api/', include(router.urls)),
     path('api-auth/', include('rest_framework.urls')),
     path('login/', my_login_view, name="login"),
     path('logout/', my_logout_view, name="logout"),

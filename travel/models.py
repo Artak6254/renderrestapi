@@ -6,7 +6,7 @@ from django.core.validators import FileExtensionValidator
 
 class Logo(models.Model):
     logo = models.FileField(
-        upload_to="travel/static/image",
+        upload_to="logos/",
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
     )
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="logos", null=True)
@@ -38,18 +38,20 @@ class SubnavbarsList(models.Model):
     def __str__(self):
         return f"{self.lang} {self.title} {self.url}"
 
+
 class HomePageIntro(models.Model):
     lang = models.CharField(max_length=20)
-    title_logo_image = models.FileField(upload_to="travel/static/image")
+    title_logo_image = models.FileField(upload_to="home_page_intro/images/")  # Փոխարինեք static/image-ը
     descr = models.CharField(max_length=255)
     image = models.FileField(
-        upload_to="travel/static/image",
+        upload_to="home_page_intro/images/",  # Փոխարինեք static/image-ը
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
     )
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="homepageIntro", null=True)
-   
+
     class Meta:
         ordering = ['id']
+
     def __str__(self):
         return f"{self.lang} {self.title_logo_image} {self.descr} {self.image}"
 
@@ -101,12 +103,18 @@ class HomePageWhyChooseUs(models.Model):
     title = models.CharField(max_length=120)
     sub_title = models.CharField(max_length=100)
     image = models.FileField(
-        upload_to="travel/static/image",
+        upload_to="why_choose_us/images/",  # Փոխարինել static/image-ս չփոխարկելու
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
     )
-    map_image = models.FileField(upload_to="travel/static/image")
+    map_image = models.FileField(upload_to="why_choose_us/images/")  # Փոխարինել static/image-ս
+
     class Meta:
-        ordering = ['id'] 
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.lang} {self.title} {self.sub_title} {self.image}"
+    
+    
 class ReasonsList(models.Model):
     homepage_why_choose_us = models.ForeignKey(
         HomePageWhyChooseUs, 
@@ -173,3 +181,47 @@ class FooterSocial(models.Model):
         ordering = ['id'] 
     def __str__(self):
         return f"{self.lang} {self.title} {self.url}"
+
+
+
+#------- booking ----------
+
+class Booking(models.Model):
+    booking_flights = models.ForeignKey('BookingFlights', on_delete=models.CASCADE, related_name='bookings')
+    bort_number = models.CharField(max_length=100)
+    from_here = models.CharField(max_length=120)
+    to_there = models.CharField(max_length=120)
+    adult_count = models.CharField(max_length=50)
+    child_count = models.CharField(max_length=50)
+    baby_count = models.CharField(max_length=50)
+    price = models.CharField(max_length=90)
+
+    def __str__(self):
+        return f" {self.id} {self.from_here} {self.to_there}"
+
+
+class BookingPassengers(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='passengers')
+    seat_number = models.CharField(max_length=60)
+    departure_baggage_weight = models.CharField(max_length=80)
+    return_baggage_weight = models.CharField(max_length=60)
+
+    def __str__(self):
+        return f"{self.booking.id} {self.seat_number}"
+
+
+class BookingFlights(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='flight_details')
+    checkin_date = models.CharField(max_length=150)
+    checkout_date = models.CharField(max_length=150)
+    checkin_time = models.CharField(max_length=150)
+    checkout_time = models.CharField(max_length=150)
+    is_active = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.booking.id}: {self.checkin_date} {self.checkout_date}"
+    
+
+
+
+    

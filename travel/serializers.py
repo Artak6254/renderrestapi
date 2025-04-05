@@ -31,12 +31,23 @@ class NavbarsSerializer(serializers.ModelSerializer):
 class LogoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Logo
-        fields = "__all__"
+        fields = ['id', 'logo', 'owner']
 
 class HomePageIntroSerializer(serializers.ModelSerializer):
+    title_logo_image = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = HomePageIntro
         fields = '__all__'
+
+    def get_title_logo_image(self, obj):
+        # Մատուցում է լրիվ URL-ը
+        return obj.title_logo_image.url
+
+    def get_image(self, obj):
+        # Մատուցում է լրիվ URL-ը
+        return obj.image.url
 
 class CalendarFieldListSerializer(serializers.ModelSerializer):  
     class Meta:
@@ -82,6 +93,14 @@ class HomePageWhyChooseUsSerializer(serializers.ModelSerializer):
         model = HomePageWhyChooseUs
         fields = ['id', 'lang', 'title', 'sub_title', 'image', 'map_image', 'reasons_list']
 
+    def get_image(self, obj):
+        # Մատուցում է լրիվ URL-ը
+        return obj.image.url
+
+    def get_map_image(self, obj):
+        # Մատուցում է լրիվ URL-ը
+            return obj.map_image.url
+        
     def create(self, validated_data):
         # Ստանում ենք reasonsList-ը request-ից
         reasons_data = self.initial_data.get('reasonsList', [])  
