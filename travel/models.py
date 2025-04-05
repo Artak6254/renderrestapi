@@ -3,15 +3,17 @@ from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
 
 
+
 class Logo(models.Model):
-    logo = models.ImageField(
+    logo = models.FileField(
         upload_to="travel/static/image",
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'svg'])]
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
     )
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="logos", null=True)
-    
+
     class Meta:
         ordering = ['id']
+
     def __str__(self):
         return f"{self.logo}"
 
@@ -38,11 +40,11 @@ class SubnavbarsList(models.Model):
 
 class HomePageIntro(models.Model):
     lang = models.CharField(max_length=20)
-    title_logo_image = models.ImageField(upload_to="travel/static/image")
+    title_logo_image = models.FileField(upload_to="travel/static/image")
     descr = models.CharField(max_length=255)
-    image = models.ImageField(
+    image = models.FileField(
         upload_to="travel/static/image",
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'svg'])]
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
     )
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="homepageIntro", null=True)
    
@@ -98,11 +100,11 @@ class HomePageWhyChooseUs(models.Model):
     lang = models.CharField(max_length=20)
     title = models.CharField(max_length=120)
     sub_title = models.CharField(max_length=100)
-    image = models.ImageField(
+    image = models.FileField(
         upload_to="travel/static/image",
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'svg'])]
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
     )
-    map_image = models.ImageField(upload_to="travel/static/image")
+    map_image = models.FileField(upload_to="travel/static/image")
     class Meta:
         ordering = ['id'] 
 class ReasonsList(models.Model):
