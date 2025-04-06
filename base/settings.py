@@ -16,33 +16,16 @@ SECRET_KEY = 'django-insecure-l#&mcg+!oqr5s*+sr^p492a*$#ekzuvv)5zn7k7b$fn#+@fv8@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# Enable CSRF protection
-CSRF_USE_SESSIONS = True  
-CSRF_COOKIE_HTTPONLY = False  # Allow frontend to access the CSRF cookie
-CSRF_COOKIE_SECURE = False  # Change to True in production with HTTPS
-CSRF_COOKIE_NAME = "csrf_token"
-CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:3000', 'http://localhost:3000']  # Adjust based on frontend URL
+ALLOWED_HOSTS = ['renderrestapi-snvr.onrender.com', 'localhost', '127.0.0.1']
 
-# Enable session authentication in Django REST Framework
-# Django REST Framework settings
-REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-    ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',  # Token Authentication
-    ],
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.UserRateThrottle',
-        'rest_framework.throttling.AnonRateThrottle',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-}
+# SESSION SECURITY
+CSRF_COOKIE_NAME = "csrftoken"
+SESSION_COOKIE_SECURE = False  # Only send cookies over HTTPS
+SESSION_COOKIE_HTTPONLY = False  # Prevent JavaScript access
+CSRF_COOKIE_SECURE = False
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Session կփակվի բրաուզերը փակելուց հետո
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Default session engine
+
 # CORS CONFIGURATION
 CORS_ALLOW_CREDENTIALS = True  # Թույլ է տալիս cookies կամ tokens փոխանցել
 CORS_ALLOWED_ORIGIN_REGEXES = [r".*"]  # Թույլ է տալիս ցանկացած host, բայց credential-ով
@@ -84,7 +67,22 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
-
+# Django REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',  # Token Authentication
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+}
 
 ROOT_URLCONF = 'base.urls'
 
