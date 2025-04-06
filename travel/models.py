@@ -189,6 +189,8 @@ class FooterSocial(models.Model):
 class Booking(models.Model):
     booking_flights = models.ForeignKey('BookingFlights', on_delete=models.CASCADE, related_name='bookings')
     bort_number = models.CharField(max_length=100)
+    airport_name = models.CharField(max_length=100, default="Unknown Airport")
+    airport_short_name = models.CharField(max_length=100, default="Unknown short Airport")
     from_here = models.CharField(max_length=120)
     to_there = models.CharField(max_length=120)
     adult_count = models.CharField(max_length=50)
@@ -199,7 +201,6 @@ class Booking(models.Model):
     def __str__(self):
         return f" {self.id} {self.from_here} {self.to_there}"
 
-
 class BookingPassengers(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='passengers')
     seat_number = models.CharField(max_length=60)
@@ -209,9 +210,7 @@ class BookingPassengers(models.Model):
     def __str__(self):
         return f"{self.booking.id} {self.seat_number}"
 
-
 class BookingFlights(models.Model):
-    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='flight_details')
     checkin_date = models.CharField(max_length=150)
     checkout_date = models.CharField(max_length=150)
     checkin_time = models.CharField(max_length=150)
@@ -219,7 +218,8 @@ class BookingFlights(models.Model):
     is_active = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.booking.id}: {self.checkin_date} {self.checkout_date}"
+        return f"{self.checkin_date} {self.checkout_date}"
+
     
 
 
