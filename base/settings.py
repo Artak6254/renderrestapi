@@ -19,7 +19,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['renderrestapi-snvr.onrender.com', 'localhost', '127.0.0.1']
 
 # SESSION SECURITY
-CSRF_COOKIE_NAME = "csrftoken"
+CSRF_COOKIE_NAME = "csrf_token"
 SESSION_COOKIE_SECURE = False  # Only send cookies over HTTPS
 SESSION_COOKIE_HTTPONLY = False  # Prevent JavaScript access
 CSRF_COOKIE_SECURE = False

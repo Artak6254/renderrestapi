@@ -1,5 +1,6 @@
 import logging
 from django.http import JsonResponse
+from rest_framework.permissions import AllowAny
 from django.middleware.csrf import get_token
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
@@ -131,9 +132,10 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
-class BookingTicket(viewsets.ModelViewSet):  # Ensure this extends ModelViewSet
+class BookingTicket(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
+    permission_classes = [AllowAny]  # Թույլատրել բոլորին առանց ավտորիզացիայի
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
