@@ -18,12 +18,12 @@ from django.dispatch import receiver
 from travel.permissions import IsAdminOrOwner
 from .models import (
     Logo, Navbars, HomepageBookingSearch, HomePageIntro,
-    HomePageWhyChooseUs, HomePageFaq, Footer,Booking
-)
+    HomePageWhyChooseUs, HomePageFaq, Footer, SoldTickets, PassngerList,AvailableTickets, PlaneSeats)
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
     HomePageIntroSerializer, HomePageWhyChooseUsSerializer,
-    HomePageFaqSerializer, FooterSerializer,BookingSerializer
+    HomePageFaqSerializer, FooterSerializer,PassngerListSerializer,SoldTicketsSerializer,
+    AvailableTicketsSerializers, PlaneSeatsSerializers
 )
 
 # Log կարգավորումներ
@@ -87,6 +87,9 @@ def my_logout_view(request):
 @receiver(post_save, sender=HomePageWhyChooseUs)
 @receiver(post_save, sender=HomePageFaq)
 @receiver(post_save, sender=Footer)
+@receiver(post_save, sender=SoldTicketsSerializer)
+@receiver(post_save, sender=PassngerListSerializer)
+
 
 def update_session_after_save(sender, instance, **kwargs):
     for session in Session.objects.all():
@@ -132,17 +135,20 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
-class BookingTicket(viewsets.ModelViewSet):
-    queryset = Booking.objects.all()
-    serializer_class = BookingSerializer
-    permission_classes = [AllowAny]  # Թույլատրել բոլորին առանց ավտորիզացիայի
+class SoldTicketsViewSet(viewsets.ModelViewSet):
+    queryset = SoldTickets.objects.all()
+    serializer_class = SoldTicketsSerializer
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            booking = serializer.save()
-            return Response(
-                {"message": "Booking created successfully", "data": serializer.data},
-                status=status.HTTP_201_CREATED
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class PassngerListViewSet(viewsets.ModelViewSet):
+    queryset = PassngerList.objects.all()
+    serializer_class = PassngerListSerializer
+
+
+class AvailableTicketsViewSet(viewsets.ModelViewSet):
+      queryset = AvailableTickets.objects.all()
+      serializer_class = AvailableTicketsSerializers  
+
+class PlaneSeatsViewSet(viewsets.ModelViewSet):
+    queryset = PlaneSeats.objects.all()
+    serializer_class = PlaneSeatsSerializers      
+      

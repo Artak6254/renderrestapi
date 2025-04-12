@@ -4,7 +4,7 @@ from .models import (
     CalendarFieldList,PassangerFieldList,
     HomePageIntro, HomePageWhyChooseUs, ReasonsList, 
     HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,
-    Booking, BookingPassengers, BookingFlights
+    SoldTickets, PassngerList,AvailableTickets, PlaneSeats
 )
 
 class SubnavbarsListSerializer(serializers.ModelSerializer):
@@ -170,40 +170,40 @@ class FooterSerializer(serializers.ModelSerializer):
     
     
     
+
     
-    #book ticket logic
     
-class BookingFlightsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BookingFlights
-        fields = ['id', 'checkin_date', 'checkout_date', 'checkin_time', 
-                  'checkout_time', 'is_active']  # Removed airport_short_name
 
-class BookingPassengersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BookingPassengers
-        fields = ['id', 'seat_number', 'departure_baggage_weight', 'return_baggage_weight']
+    
+#Booking logic    
 
-class BookingSerializer(serializers.ModelSerializer):
-    booking_flights = BookingFlightsSerializer()  # Many=False, ոչ թե Many=True
-    passengers = BookingPassengersSerializer(many=True)
+class PassngerListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PassngerList
+        fields = '__all__'
+
+class SoldTicketsSerializer(serializers.ModelSerializer):
+    pasanger_list = PassngerListSerializer(many=True, required=False)
 
     class Meta:
-        model = Booking
-        fields = ['id', 'bort_number', 'airport_name', 
-                  'airport_short_name', 'from_here', 'to_there', 
-                  'adult_count', 'child_count', 'baby_count', 'price', 
-                  'booking_flights', 'passengers']
+        model = SoldTickets
+        fields = '__all__'
 
     def create(self, validated_data):
-        flight_data = validated_data.pop('booking_flights') 
-        passengers_data = validated_data.pop('passengers')
-
-        booking_flights = BookingFlights.objects.create(**flight_data)
-
-        booking = Booking.objects.create(booking_flights=booking_flights, **validated_data)
-
-        for passenger_data in passengers_data:
-            BookingPassengers.objects.create(booking=booking, **passenger_data)
-
-        return booking
+        passengers_data = validated_data.pop('pasanger_list', [])
+        sold_ticket = SoldTickets.objects.create(**validated_data)
+        for passenger in passengers_data:
+            PassngerList.objects.create(ticket_id=sold_ticket, **passenger)
+        return sold_ticket
+    
+    
+class AvailableTicketsSerializers(serializers.ModelSerializer):
+     class Meta:
+        model = AvailableTickets
+        fields = "__all__"
+        
+class PlaneSeatsSerializers(serializers.ModelSerializer):
+      class Meta:
+        model = PlaneSeats
+        fields = "__all__"      
+    
