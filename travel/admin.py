@@ -8,7 +8,7 @@ from .models import (
     Logo, Navbars, SubnavbarsList, HomePageIntro, HomepageBookingSearch, 
     CalendarFieldList, PassangerFieldList, HomePageWhyChooseUs, ReasonsList, 
     HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,AvailableTickets,
-    PlaneSeats,PassngerList,SoldTickets
+    PlaneSeats,PassngerList,SoldTickets,LanguageList
 )
 
 
@@ -24,6 +24,7 @@ admin.site.register(Logo)
 admin.site.register(HomePageIntro)
 admin.site.register(AvailableTickets)
 admin.site.register(PlaneSeats)
+admin.site.register(LanguageList)
 
 
 class SubnavbarsListInline(admin.TabularInline):  
