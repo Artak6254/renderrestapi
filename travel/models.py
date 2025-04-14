@@ -1,4 +1,5 @@
 from django.db import models
+import hashlib
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
 
@@ -214,25 +215,39 @@ class SoldTickets(models.Model):
     departure_price = models.CharField(max_length=50)
     return_price = models.CharField(max_length=50)
     
+    def __str__(self):
+        return (
+        f"{self.from_here} {self.to_there} {self.airport_name} {self.airport_short_name} "
+        f"{self.departure_date} {self.departure_time} {self.arrive_time} {self.return_date} "
+        f"{self.return_departure_time} {self.return_arrive_time} {self.bort_number} "
+        f"{self.adult_count} {self.child_count} {self.baby_count}"
+        f"{self.departure_price} {self.return_price}"    
+       )
     
+
 class PassngerList(models.Model):
-    ticket_id = models.ForeignKey(SoldTickets, on_delete=models.CASCADE, related_name="pasanger_list")
+    ticket_id = models.ForeignKey('SoldTickets', on_delete=models.CASCADE, related_name="pasanger_list")
     phone = models.CharField(max_length=50)
     email = models.EmailField(max_length=60)
     title = models.CharField(max_length=60)
     full_name = models.CharField(max_length=60)
     date_of_birth = models.CharField(max_length=50)
     citizenship = models.CharField(max_length=20)
-    passport_serial = models.CharField(max_length=60)
-    departure_baggage_weight = models.CharField(max_length=60)   
+    passport_serial = models.CharField(max_length=64, editable=False)  # hashed
+    raw_passport_serial = models.CharField(max_length=60, blank=True, null=True)  # will not be saved
+
+    departure_baggage_weight = models.CharField(max_length=60)
     return_baggage_weight = models.CharField(max_length=60)
     departure_seat_number = models.CharField(max_length=20)
     return_seat_number = models.CharField(max_length=20)
-    
+
+    def save(self, *args, **kwargs):
+        if self.raw_passport_serial:
+            self.passport_serial = hashlib.sha256(self.raw_passport_serial.encode()).hexdigest()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.phone}{self.email}{self.title}{self.full_name}{self.date_of_birth}{self.citizenship}{self.passport_serial}{self.departure_baggage_weight}{self.return_baggage_weight}{self.departure_seat_number} {self.return_seat_number}"
-
-
+        return f"{self.phone} - {self.full_name}"
 
 
 class AvailableTickets(models.Model):
