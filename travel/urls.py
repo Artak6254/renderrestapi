@@ -5,11 +5,12 @@ from .views import (
     HomePageIntroViewSet, HomePageWhyChooseUsViewSet,
     HomePageFaqViewSet, FooterViewSet, BookingSearchViewSet,
     SoldTicketsViewSet, PassngerListViewSet,AvailableTicketsViewSet, 
-    PlaneSeatsViewSet,
+    PlaneSeatsViewSet,LanguageListViewSet,
     my_login_view, my_logout_view
 )
 
 router = DefaultRouter()
+router.register(r'lang', LanguageListViewSet, basename="lang")
 router.register(r'logo', LogoViewSet, basename="logo")
 router.register(r'navbars', NavbarsViewSet, basename='navbars')
 router.register(r'homepage_intro', HomePageIntroViewSet, basename="homepage_intro")

@@ -17,11 +17,11 @@ from django.dispatch import receiver
 
 from travel.permissions import IsAdminOrOwner
 from .models import (
-    Logo, Navbars, HomepageBookingSearch, HomePageIntro,
+    Logo, Navbars, HomepageBookingSearch, HomePageIntro, LanguageList,
     HomePageWhyChooseUs, HomePageFaq, Footer, SoldTickets, PassngerList,AvailableTickets, PlaneSeats)
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
-    HomePageIntroSerializer, HomePageWhyChooseUsSerializer,
+    HomePageIntroSerializer, HomePageWhyChooseUsSerializer, LanguageListSerializer,
     HomePageFaqSerializer, FooterSerializer,PassngerListSerializer,SoldTicketsSerializer,
     AvailableTicketsSerializers, PlaneSeatsSerializers
 )
@@ -87,8 +87,9 @@ def my_logout_view(request):
 @receiver(post_save, sender=HomePageWhyChooseUs)
 @receiver(post_save, sender=HomePageFaq)
 @receiver(post_save, sender=Footer)
-@receiver(post_save, sender=SoldTicketsSerializer)
-@receiver(post_save, sender=PassngerListSerializer)
+@receiver(post_save, sender=SoldTickets)
+@receiver(post_save, sender=PassngerList)
+@receiver(post_save, sender=LanguageList)
 
 
 def update_session_after_save(sender, instance, **kwargs):
@@ -97,6 +98,13 @@ def update_session_after_save(sender, instance, **kwargs):
         session.save()
 
 # ✅ API ViewSets
+
+class LanguageListViewSet(LangFilteredViewSet):
+    queryset = LanguageList.objects.all()
+    serializer_class = LanguageListSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+
 class LogoViewSet(LangFilteredViewSet):
     queryset = Logo.objects.all()
     serializer_class = LogoSerializer
@@ -147,6 +155,7 @@ class PassngerListViewSet(viewsets.ModelViewSet):
 class AvailableTicketsViewSet(viewsets.ModelViewSet):
       queryset = AvailableTickets.objects.all()
       serializer_class = AvailableTicketsSerializers  
+      permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
 class PlaneSeatsViewSet(viewsets.ModelViewSet):
     queryset = PlaneSeats.objects.all()

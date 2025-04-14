@@ -1,11 +1,16 @@
 from rest_framework import serializers
 from .models import (
-    Logo, Navbars, SubnavbarsList, HomepageBookingSearch,
+    LanguageList,Logo, Navbars, SubnavbarsList, HomepageBookingSearch,
     CalendarFieldList,PassangerFieldList,
     HomePageIntro, HomePageWhyChooseUs, ReasonsList, 
     HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,
     SoldTickets, PassngerList,AvailableTickets, PlaneSeats
 )
+
+class LanguageListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LanguageList
+        fields = '__all__'
 
 class SubnavbarsListSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,6 +32,7 @@ class NavbarsSerializer(serializers.ModelSerializer):
             SubnavbarsList.objects.create(navbar=navbar, **subnav_data)
 
         return navbar
+
 
 
 class LogoSerializer(serializers.ModelSerializer):

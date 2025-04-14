@@ -1,9 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
-from django.contrib.postgres.fields import ArrayField
 
 
+
+class LanguageList(models.Model):
+    title = models.CharField(max_length=30)
+    image = models.FileField(
+        upload_to="language_list/images/", 
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'svg'])]
+    )
+    def __str__(self):
+        return f"{self.title} {self.image}"
 
 class Logo(models.Model):
     logo = models.FileField(
@@ -186,40 +194,6 @@ class FooterSocial(models.Model):
 
 
 #------- booking ----------
-
-# class Booking(models.Model):
-#     booking_flights = models.ForeignKey('BookingFlights', on_delete=models.CASCADE, related_name='bookings')
-#     bort_number = models.CharField(max_length=100)
-#     airport_name = models.CharField(max_length=100, default="Unknown Airport")
-#     airport_short_name = models.CharField(max_length=100, default="Unknown short Airport")
-#     from_here = models.CharField(max_length=120)
-#     to_there = models.CharField(max_length=120)
-#     adult_count = models.CharField(max_length=50)
-#     child_count = models.CharField(max_length=50)
-#     baby_count = models.CharField(max_length=50)
-#     price = models.CharField(max_length=90)
-
-#     def __str__(self):
-#         return f" {self.id} {self.from_here} {self.to_there}"
-
-# class BookingPassengers(models.Model):
-#     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='passengers')
-#     seat_number = models.CharField(max_length=60)
-#     departure_baggage_weight = models.CharField(max_length=80)
-#     return_baggage_weight = models.CharField(max_length=60)
-
-#     def __str__(self):
-#         return f"{self.booking.id} {self.seat_number}"
-
-# class BookingFlights(models.Model):
-#     checkin_date = models.CharField(max_length=150)
-#     checkout_date = models.CharField(max_length=150)
-#     checkin_time = models.CharField(max_length=150)
-#     checkout_time = models.CharField(max_length=150)
-#     is_active = models.BooleanField(default=False)
-
-#     def __str__(self):
-#         return f"{self.checkin_date} {self.checkout_date}"
 
 
 class SoldTickets(models.Model):
