@@ -84,17 +84,6 @@ class FooterAdmin(admin.ModelAdmin):
 class PassngerListInline(admin.StackedInline):
     model = PassngerList
     extra = 1
-    fields = (
-        'phone', 'email', 'title', 'full_name', 'date_of_birth', 'citizenship',
-        'raw_passport_serial', 'departure_baggage_weight', 'return_baggage_weight',
-        'departure_seat_number', 'return_seat_number'
-    )
-    readonly_fields = ('passport_serial',)
-
-    def get_readonly_fields(self, request, obj=None):
-        if obj:
-            return self.readonly_fields + ('raw_passport_serial',)
-        return self.readonly_fields
 
 @admin.register(SoldTickets)
 class SoldTicketsAdmin(admin.ModelAdmin): 
