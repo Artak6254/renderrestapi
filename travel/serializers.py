@@ -1,10 +1,11 @@
 from rest_framework import serializers
+from django.db import transaction
 from .models import (
     LanguageList,Logo, Navbars, SubnavbarsList, HomepageBookingSearch,
     CalendarFieldList,PassangerFieldList,
     HomePageIntro, HomePageWhyChooseUs, ReasonsList, 
     HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,
-    SoldTickets, PassngerList,AvailableTickets, PlaneSeats
+    Flights, FlightSeats, Passengers, Tickets
 )
 
 class LanguageListSerializer(serializers.ModelSerializer):
@@ -181,35 +182,44 @@ class FooterSerializer(serializers.ModelSerializer):
     
 
     
-#Booking logic    
+# #Booking logic    
 
-class PassngerListSerializer(serializers.ModelSerializer):
+class FlightSearchSerializer(serializers.Serializer):
+    from_here = serializers.CharField()
+    to_there = serializers.CharField()
+    departure_date = serializers.CharField()
+    return_date = serializers.CharField()
+    adult_count = serializers.IntegerField()
+    child_count = serializers.IntegerField()
+    baby_count = serializers.IntegerField()
+
+class FlightSeatsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PassngerList
+        model = FlightSeats
         fields = '__all__'
 
-class SoldTicketsSerializer(serializers.ModelSerializer):
-    pasanger_list = PassngerListSerializer(many=True, required=False)
+
+class PassengersSerializer(serializers.ModelSerializer):
+    departure_seat = FlightSeatsSerializer(read_only=True)
+    return_seat = FlightSeatsSerializer(read_only=True)
 
     class Meta:
-        model = SoldTickets
+        model = Passengers
         fields = '__all__'
 
-    def create(self, validated_data):
-        passengers_data = validated_data.pop('pasanger_list', [])
-        sold_ticket = SoldTickets.objects.create(**validated_data)
-        for passenger in passengers_data:
-            PassngerList.objects.create(ticket_id=sold_ticket, **passenger)
-        return sold_ticket
-    
-    
-class AvailableTicketsSerializers(serializers.ModelSerializer):
-     class Meta:
-        model = AvailableTickets
-        fields = "__all__"
-        
-class PlaneSeatsSerializers(serializers.ModelSerializer):
-      class Meta:
-        model = PlaneSeats
-        fields = "__all__"      
-    
+
+class TicketsSerializer(serializers.ModelSerializer):
+    passengers = PassengersSerializer(many=True, read_only=True)  # related_name="passengers"
+
+    class Meta:
+        model = Tickets
+        fields = '__all__'
+
+
+class FlightsSerializer(serializers.ModelSerializer):
+    tickets = TicketsSerializer(many=True, read_only=True)  # related_name="tickets"
+    flight_seats = FlightSeatsSerializer(many=True, read_only=True)  # related_name="flight_seats"
+
+    class Meta:
+        model = Flights
+        fields = '__all__'

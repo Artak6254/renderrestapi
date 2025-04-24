@@ -195,86 +195,83 @@ class FooterSocial(models.Model):
 
 #------- booking ----------
 
-
-class SoldTickets(models.Model):
+class Flights(models.Model): 
+    is_active = models.BooleanField(default=True)
     from_here = models.CharField(max_length=120)
-    to_there = models.CharField(max_length=120)   
+    to_there = models.CharField(max_length=120)
     airport_name = models.CharField(max_length=100, default="Unknown Airport")
     airport_short_name = models.CharField(max_length=100, default="Unknown short Airport")
-    departure_date = models.CharField(max_length=50)
-    departure_time = models.CharField(max_length=50)
-    arrive_time = models.CharField(max_length=50)
-    return_date = models.CharField(max_length=50)
-    return_departure_time = models.CharField(max_length=50)
-    return_arrive_time = models.CharField(max_length=50)
+    departure_date = models.CharField(max_length=20, default="01-01-2025")
+    departure_time = models.CharField(max_length=20, default="00:00")
+    arrival_time = models.CharField(max_length=20, default="00:00")
+    return_date = models.CharField(max_length=20, default="02-01-2025")
+    return_departure_time = models.CharField(max_length=20, default="00:00")
+    return_arrival_time = models.CharField(max_length=20, default="00:00")
     bort_number = models.CharField(max_length=50)
-    adult_count = models.CharField(max_length=50)
-    child_count = models.CharField(max_length=50)
-    baby_count = models.CharField(max_length=50)
-    departure_price = models.CharField(max_length=50)
-    return_price = models.CharField(max_length=50)
-    
+
     def __str__(self):
+        return f"{self.from_here} ➝ {self.to_there} ({self.departure_date})"
+
+    def has_available_seats(self, required_count=1):
+        """Վերադարձնում է՝ արդյոք կա ազատ տեղ departure և return ուղղություններով"""
         return (
-        f"{self.from_here} {self.to_there} {self.airport_name} {self.airport_short_name} "
-        f"{self.departure_date} {self.departure_time} {self.arrive_time} {self.return_date} "
-        f"{self.return_departure_time} {self.return_arrive_time} {self.bort_number} "
-        f"{self.adult_count} {self.child_count} {self.baby_count}"
-        f"{self.departure_price} {self.return_price}"    
-       )
-    
-class PassngerList(models.Model):
-    ticket_id = models.ForeignKey(SoldTickets, on_delete=models.CASCADE, related_name="pasanger_list")
+            self.flight_seats.filter(seat_type='departure', is_taken=False).count() >= required_count and
+            self.flight_seats.filter(seat_type='return', is_taken=False).count() >= required_count
+        )
+
+
+class Tickets(models.Model):
+    flight_id = models.ForeignKey(Flights, on_delete=models.CASCADE, related_name="tickets")
+    is_active = models.BooleanField(default=False)
+    is_sold = models.BooleanField(default=False)
+    adult_count = models.CharField(max_length=10, default=0)
+    child_count = models.CharField(max_length=10, default=0)
+    baby_count = models.CharField(max_length=10, default=0)
+    departure_price = models.CharField(max_length=10, default=0)
+    return_price = models.CharField(max_length=10, default=0)
+
+    def __str__(self):
+        return f"Ticket #{self.id} | Flight: {self.flight_id}"
+
+class FlightSeats(models.Model):
+    SEAT_TYPE_CHOICES = [
+        ('departure', 'Departure'),
+        ('return', 'Return'),
+    ]
+
+    flight_id = models.ForeignKey(Flights, on_delete=models.CASCADE, related_name="flight_seats")
+    seat_number = models.CharField(max_length=10)
+    is_taken = models.BooleanField(default=False)
+    seat_type = models.CharField(max_length=10, choices=SEAT_TYPE_CHOICES, default='departure')
+
+    def __str__(self):
+        return f"{self.flight_id.bort_number} - Seat {self.seat_number} ({self.seat_type}) ({'Taken' if self.is_taken else 'Free'})"
+
+
+class Passengers(models.Model):
+    ticket_id = models.ForeignKey(Tickets, on_delete=models.CASCADE, related_name="passengers")
     phone = models.CharField(max_length=50)
     email = models.EmailField(max_length=60)
-    title = models.CharField(max_length=60)
-    full_name = models.CharField(max_length=60)
-    date_of_birth = models.CharField(max_length=50)
-    citizenship = models.CharField(max_length=20)
+    title = models.CharField(max_length=10)
+    full_name = models.CharField(max_length=100)
+    date_of_birth = models.CharField(max_length=20)
+    citizenship = models.CharField(max_length=30)
     passport_serial = models.CharField(max_length=60)
-    departure_baggage_weight = models.CharField(max_length=60)   
-    return_baggage_weight = models.CharField(max_length=60)
-    departure_seat_number = models.CharField(max_length=20)
-    return_seat_number = models.CharField(max_length=20)
-    
+    departure_baggage_weight = models.CharField(max_length=20)
+    return_baggage_weight = models.CharField(max_length=20)
+    departure_seat = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="departure_passengers")
+    return_seat = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="return_passengers")
+
     def __str__(self):
-        return f"{self.phone}{self.email}{self.title}{self.full_name}{self.date_of_birth}{self.citizenship}{self.passport_serial}{self.departure_baggage_weight}{self.return_baggage_weight}{self.departure_seat_number} {self.return_seat_number}"
+        return f"{self.full_name} ({self.passport_serial})"
 
 
 
 
-class AvailableTickets(models.Model):
-    from_here = models.CharField(max_length=120)
-    to_there = models.CharField(max_length=120)   
-    airport_name = models.CharField(max_length=100, default="Unknown Airport")
-    airport_short_name = models.CharField(max_length=100, default="Unknown short Airport")
-    departure_date = models.CharField(max_length=50)
-    departure_time = models.CharField(max_length=50)
-    arrive_time = models.CharField(max_length=50)
-    return_date = models.CharField(max_length=50)
-    return_departure_time = models.CharField(max_length=50)
-    return_arrive_time = models.CharField(max_length=50)
-    bort_number = models.CharField(max_length=50)   
-    departure_price = models.CharField(max_length=50)
-    return_price = models.CharField(max_length=50)
-    seats_available = models.CharField(max_length=60)
-    is_round_trip = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=False)
+
+
+
+
     
-    
-    def __str__(self):
-       return (
-        f"{self.from_here} {self.to_there} {self.airport_name} {self.airport_short_name} "
-        f"{self.departure_date} {self.departure_time} {self.arrive_time} {self.return_date} "
-        f"{self.return_departure_time} {self.return_arrive_time} {self.bort_number} "
-        f"{self.departure_price} {self.return_price} {self.seats_available} "
-        f"{self.is_round_trip} {self.is_active}"
-       )
 
 
-class PlaneSeats(models.Model):
-    seat_number = models.CharField(max_length=20)
-    is_busy = models.BooleanField(default=False)
-    
-    def __str__(self):
-        return f"{self.seat_number} {self.is_busy}"

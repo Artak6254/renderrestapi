@@ -1,6 +1,9 @@
 import logging
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Q
 from django.http import JsonResponse
 from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
 from django.middleware.csrf import get_token
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
@@ -18,12 +21,12 @@ from django.dispatch import receiver
 from travel.permissions import IsAdminOrOwner
 from .models import (
     Logo, Navbars, HomepageBookingSearch, HomePageIntro, LanguageList,
-    HomePageWhyChooseUs, HomePageFaq, Footer, SoldTickets, PassngerList,AvailableTickets, PlaneSeats)
+    HomePageWhyChooseUs, HomePageFaq, Footer, Flights, FlightSeats, Passengers, Tickets)
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
     HomePageIntroSerializer, HomePageWhyChooseUsSerializer, LanguageListSerializer,
-    HomePageFaqSerializer, FooterSerializer,PassngerListSerializer,SoldTicketsSerializer,
-    AvailableTicketsSerializers, PlaneSeatsSerializers
+    HomePageFaqSerializer, FooterSerializer, FlightsSerializer, FlightSeatsSerializer,
+    TicketsSerializer, PassengersSerializer,FlightSearchSerializer
 )
 
 # Log կարգավորումներ
@@ -34,28 +37,27 @@ def get_csrf_token(request):
     response.set_cookie('csrftoken', get_token(request))
     return response
 # ✅ Base class for filtering by language and user ownership
-class LangFilteredViewSet(viewsets.ModelViewSet):
-    def get_queryset(self):
-        queryset = self.queryset.all().distinct()  # ORM Cache-ի շրջանցում
-        lang = self.request.query_params.get('lang')
-        user = self.request.user
-        
-        if lang:
-            queryset = queryset.filter(lang=lang)
-        if user.is_authenticated:
-            queryset = queryset.filter(owner=user)
-        
-        return queryset
+
+
+
 
 # ✅ Անվտանգ login
+logger = logging.getLogger(__name__)
+
+@csrf_exempt 
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
-@ensure_csrf_cookie
 def my_login_view(request):
     if request.method != "POST":
         return JsonResponse({"error": "Only POST requests allowed"}, status=405)
 
-    username = request.POST.get('username')
-    password = request.POST.get('password')
+    import json
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON format"}, status=400)
+
+    username = data.get('username')
+    password = data.get('password')
 
     if not username or not password:
         return JsonResponse({"error": "Username and password are required"}, status=400)
@@ -65,15 +67,22 @@ def my_login_view(request):
         request.session.flush()
         login(request, user)
         request.session.cycle_key()
-        request.session.modified = True  # Թարմացնում ենք session-ը
+
+        session_id = request.session.session_key
 
         logger.info(f"User {user.username} logged in successfully.")
-        return JsonResponse({"message": "Login successful", "csrf_token": get_token(request)}, status=200)
+        return JsonResponse({
+            "message": "Login successful",
+            "username": user.username,
+            "session_id": session_id  
+        }, status=200)
 
     logger.warning(f"Failed login attempt for username: {username}")
     return JsonResponse({"error": "Invalid credentials"}, status=401)
 
-# ✅ Logout View
+
+
+
 def my_logout_view(request):
     logout(request)
     request.session.modified = True  # Logout-ից հետո session-ի թարմացում
@@ -87,8 +96,6 @@ def my_logout_view(request):
 @receiver(post_save, sender=HomePageWhyChooseUs)
 @receiver(post_save, sender=HomePageFaq)
 @receiver(post_save, sender=Footer)
-@receiver(post_save, sender=SoldTickets)
-@receiver(post_save, sender=PassngerList)
 @receiver(post_save, sender=LanguageList)
 
 
@@ -97,7 +104,26 @@ def update_session_after_save(sender, instance, **kwargs):
         session.modified = True
         session.save()
 
+
+
+
+
+
 # ✅ API ViewSets
+
+class LangFilteredViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        queryset = self.queryset.all().distinct()  # ORM Cache-ի շրջանցում
+        lang = self.request.query_params.get('lang')
+        user = self.request.user
+        
+        if lang:
+            queryset = queryset.filter(lang=lang)
+        if user.is_authenticated:
+            queryset = queryset.filter(owner=user)
+        
+        return queryset
+
 
 class LanguageListViewSet(LangFilteredViewSet):
     queryset = LanguageList.objects.all()
@@ -143,21 +169,90 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
-class SoldTicketsViewSet(viewsets.ModelViewSet):
-    queryset = SoldTickets.objects.all()
-    serializer_class = SoldTicketsSerializer
-
-class PassngerListViewSet(viewsets.ModelViewSet):
-    queryset = PassngerList.objects.all()
-    serializer_class = PassngerListSerializer
 
 
-class AvailableTicketsViewSet(viewsets.ModelViewSet):
-      queryset = AvailableTickets.objects.all()
-      serializer_class = AvailableTicketsSerializers  
-      permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
-class PlaneSeatsViewSet(viewsets.ModelViewSet):
-    queryset = PlaneSeats.objects.all()
-    serializer_class = PlaneSeatsSerializers      
-      
+class AvailableFlightsView(APIView):
+    def post(self, request):
+        serializer = FlightSearchSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        total_passengers = (
+            data.get('adult_count', 0) +
+            data.get('child_count', 0) +
+            data.get('baby_count', 0)
+        )
+
+        flights = Flights.objects.filter(
+            from_here=data['from_here'],
+            to_there=data['to_there'],
+            departure_date=data['departure_date'],
+            return_date=data['return_date'],
+            is_active=True
+        )
+
+        # Օպտիմալ՝ ներքին queryset-ով հաշվարկ
+        available_flights = []
+        for flight in flights:
+            if flight.has_available_seats(total_passengers):
+                available_flights.append(flight)
+
+        if not available_flights:
+            return Response(
+                {"message": "Բավարար ազատ նստատեղեր չկան այս թռիչքներում։"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        result_serializer = FlightsSerializer(available_flights, many=True)
+        return Response(result_serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+class FlightsViewSet(viewsets.ModelViewSet):
+    serializer_class = FlightsSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+    def get_queryset(self):
+        queryset = Flights.objects.filter(is_active=True)
+        return [flight for flight in queryset if flight.has_available_seats()]
+
+
+class TicketsViewSet(viewsets.ModelViewSet):
+    serializer_class = TicketsSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+    def get_queryset(self):
+        # Only tickets with at least one taken seat
+        return Tickets.objects.filter(
+            Q(passengers__departure_seat__is_taken=True) |
+            Q(passengers__return_seat__is_taken=True)
+        ).distinct()
+        
+        
+class FlightSeatsViewSet(viewsets.ModelViewSet):
+    serializer_class = FlightSeatsSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+    def get_queryset(self):
+        seat_type = self.request.query_params.get('seat_type', None)
+        qs = FlightSeats.objects.filter(is_taken=False)
+
+        if seat_type in ['departure', 'return']:
+            qs = qs.filter(seat_type=seat_type)
+
+        return qs
+    
+    
+
+class PassngersViewSet(viewsets.ModelViewSet):
+    serializer_class = PassengersSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+    def get_queryset(self):
+        # Only passengers who have at least one seat booked
+        return Passengers.objects.filter(
+            Q(departure_seat__isnull=False) | Q(return_seat__isnull=False)
+        ).distinct()

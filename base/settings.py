@@ -30,16 +30,16 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Default session engine
 CORS_ALLOW_CREDENTIALS = True  # Թույլ է տալիս cookies կամ tokens փոխանցել
 CORS_ALLOWED_ORIGIN_REGEXES = [r".*"]  # Թույլ է տալիս ցանկացած host, բայց credential-ով
 
-
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'LOCATION': 'redis://127.0.0.1:6379/1',  # Redis հասցեն
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
     }
 }
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

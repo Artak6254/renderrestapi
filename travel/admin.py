@@ -7,8 +7,8 @@ from django.templatetags.static import static
 from .models import (
     Logo, Navbars, SubnavbarsList, HomePageIntro, HomepageBookingSearch, 
     CalendarFieldList, PassangerFieldList, HomePageWhyChooseUs, ReasonsList, 
-    HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,AvailableTickets,
-    PlaneSeats,PassngerList,SoldTickets,LanguageList
+    HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,
+    LanguageList, Tickets,Flights, FlightSeats, Passengers
 )
 
 
@@ -22,9 +22,12 @@ admin.site.index_title = 'Welcome to NOVAIR Admin Panel'
 
 admin.site.register(Logo)
 admin.site.register(HomePageIntro)
-admin.site.register(AvailableTickets)
-admin.site.register(PlaneSeats)
 admin.site.register(LanguageList)
+admin.site.register(Tickets)
+admin.site.register(Flights)
+admin.site.register(FlightSeats)
+admin.site.register(Passengers)
+
 
 
 class SubnavbarsListInline(admin.TabularInline):  
@@ -81,11 +84,4 @@ class FooterAdmin(admin.ModelAdmin):
     inlines = [FooterLinksInline, FooterSocialInline]
 
 
-class PassngerListInline(admin.StackedInline):
-    model = PassngerList
-    extra = 1
-
-@admin.register(SoldTickets)
-class SoldTicketsAdmin(admin.ModelAdmin): 
-    inlines = [ PassngerListInline ]
 
