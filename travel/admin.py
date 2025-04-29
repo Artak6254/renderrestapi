@@ -20,6 +20,29 @@ admin.site.index_title = 'Welcome to NOVAIR Admin Panel'
 
 
 
+
+
+class FlightTicketInline(admin.TabularInline):
+    model = Tickets
+    extra = 0
+    readonly_fields = (
+        'is_active', 'is_sold', 'adult_count',
+        'child_count', 'baby_count',
+        'departure_price', 'return_price'  # <<== Ուղղված է այստեղ
+    )
+    can_delete = False
+
+
+
+class FlightSeatsInline(admin.TabularInline):
+    model = FlightSeats
+    extra = 0  # չցուցադրել ավելորդ դատարկ row-եր
+    readonly_fields = ('seat_type', 'seat_number', 'is_taken')
+    can_delete = False
+
+
+
+
 admin.site.register(Logo)
 admin.site.register(HomePageIntro)
 admin.site.register(LanguageList)

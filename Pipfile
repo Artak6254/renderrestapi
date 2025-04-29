@@ -12,6 +12,7 @@ psycopg2 = "*"
 django-ratelimit = "*"
 django-cors-headers = "*"
 pymemcache = "*"
+reportlab = "*"
 
 [dev-packages]
 

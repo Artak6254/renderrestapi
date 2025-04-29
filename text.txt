@@ -1,3 +1,19 @@
 username morpho1
 email morpho@gmail.com
 password Qwerty2025
+
+
+
+
+
+# class FlightsAdmin(admin.ModelAdmin):
+#     list_display = ('from_here', 'to_there', 'departure_date', 'available_departure_seats', 'available_return_seats')
+#     readonly_fields = ('available_departure_seats', 'available_return_seats')
+#     inlines = [FlightSeatsInline,FlightTicketInline]
+    
+#     search_fields = [
+#         'from_here', 'to_there', 'bort_number',
+#         'flight_seats__seat_number', 'flight_seats__seat_type'
+#     ]
+
+# admin.site.register(FlightsAdmin)

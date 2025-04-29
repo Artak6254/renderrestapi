@@ -10,6 +10,11 @@ from django.contrib.auth.decorators import login_required
 from rest_framework.decorators import api_view
 from rest_framework import status
 from rest_framework.response import Response
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+import qrcode
+from django.db import transaction
+from django.core.mail import EmailMessage
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 from django.http import JsonResponse
@@ -17,6 +22,9 @@ from rest_framework import viewsets, permissions
 from django.contrib.sessions.models import Session
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from reportlab.pdfgen import canvas
+from django.core.mail import EmailMessage
+from io import BytesIO
 
 from travel.permissions import IsAdminOrOwner
 from .models import (
@@ -172,69 +180,110 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
-class AvailableFlightsView(APIView):
+
+class SearchAvailableFlightsView(APIView):
     def post(self, request):
         serializer = FlightSearchSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
-        total_passengers = (
-            data.get('adult_count', 0) +
-            data.get('child_count', 0) +
-            data.get('baby_count', 0)
-        )
+        adult_count = data.get("adult_count", 0)
+        child_count = data.get("child_count", 0)
+        baby_count = data.get("baby_count", 0)
+        total_passengers = adult_count + child_count
 
-        flights = Flights.objects.filter(
-            from_here=data['from_here'],
-            to_there=data['to_there'],
-            departure_date=data['departure_date'],
-            return_date=data['return_date'],
+        from_here = data["from_here"]
+        to_there = data["to_there"]
+        departure_date = str(data["departure_date"])
+        return_date = str(data["return_date"]) if data.get("return_date") else None
+
+        # === Գնալու թռիչք ===
+        departure_flights = Flights.objects.filter(
+            from_here=from_here,
+            to_there=to_there,
+            departure_date=departure_date,
             is_active=True
         )
 
-        # Օպտիմալ՝ ներքին queryset-ով հաշվարկ
-        available_flights = []
-        for flight in flights:
-            if flight.has_available_seats(total_passengers):
-                available_flights.append(flight)
+        departure_result = None
+        for flight in departure_flights:
+            tickets = list(Tickets.objects.filter(
+                flight_id=flight,
+                is_sold=False,
+                is_active=True
+            )[:total_passengers])
+            if len(tickets) >= total_passengers:
+                departure_result = {
+                    "flight": flight,
+                    "tickets": tickets
+                }
+                break
 
-        if not available_flights:
-            return Response(
-                {"message": "Բավարար ազատ նստատեղեր չկան այս թռիչքներում։"},
-                status=status.HTTP_404_NOT_FOUND
+        if not departure_result:
+            return Response({"message": "Բավարար ազատ տոմսեր չկան գնալու թռիչքի համար։"}, status=status.HTTP_404_NOT_FOUND)
+
+    
+        return_result = None
+        if return_date:
+            return_flights = Flights.objects.filter(
+                from_here=to_there,
+                to_there=from_here,
+                departure_date=return_date,
+                is_active=True
             )
 
-        result_serializer = FlightsSerializer(available_flights, many=True)
-        return Response(result_serializer.data, status=status.HTTP_200_OK)
+            for flight in return_flights:
+                tickets = list(Tickets.objects.filter(
+                    flight_id=flight,
+                    is_sold=False,
+                    is_active=True
+                )[:total_passengers])
+                if len(tickets) >= total_passengers:
+                    return_result = {
+                        "flight": flight,
+                        "tickets": tickets
+                    }
+                    break
 
+            if not return_result:
+                return Response({"message": "Բավարար ազատ տոմսեր չկան վերադառնալու թռիչքի համար։"}, status=status.HTTP_404_NOT_FOUND)
 
+        response_data = {
+            "message": "Թռիչքները և տոմսերը հաջողությամբ գտնվեցին։",
+            "departure": {
+                "flight_id": departure_result["flight"].id,
+                "tickets": TicketsSerializer(departure_result["tickets"], many=True).data
+            }
+        }
 
+        if return_result:
+            response_data["return"] = {
+                "flight_id": return_result["flight"].id,
+                "tickets": TicketsSerializer(return_result["tickets"], many=True).data
+            }
 
-class FlightsViewSet(viewsets.ModelViewSet):
-    serializer_class = FlightsSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+        return Response(response_data, status=status.HTTP_200_OK)
+
+            
+             
+        
+class PassngersViewSet(viewsets.ModelViewSet):
+    serializer_class = PassengersSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
     def get_queryset(self):
-        queryset = Flights.objects.filter(is_active=True)
-        return [flight for flight in queryset if flight.has_available_seats()]
-
-
-class TicketsViewSet(viewsets.ModelViewSet):
-    serializer_class = TicketsSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
-
-    def get_queryset(self):
-        # Only tickets with at least one taken seat
-        return Tickets.objects.filter(
-            Q(passengers__departure_seat__is_taken=True) |
-            Q(passengers__return_seat__is_taken=True)
+        return Passengers.objects.filter(
+            Q(departure_seat__isnull=False) | Q(return_seat__isnull=False)
         ).distinct()
-        
-        
+
+
+
+
+
 class FlightSeatsViewSet(viewsets.ModelViewSet):
     serializer_class = FlightSeatsSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
     def get_queryset(self):
         seat_type = self.request.query_params.get('seat_type', None)
@@ -245,14 +294,31 @@ class FlightSeatsViewSet(viewsets.ModelViewSet):
 
         return qs
     
-    
 
-class PassngersViewSet(viewsets.ModelViewSet):
-    serializer_class = PassengersSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
-    
+class FlightsViewSet(viewsets.ModelViewSet):
+    serializer_class = FlightsSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
     def get_queryset(self):
-        # Only passengers who have at least one seat booked
-        return Passengers.objects.filter(
-            Q(departure_seat__isnull=False) | Q(return_seat__isnull=False)
+        return [
+            flight for flight in Flights.objects.filter(is_active=True)
+            if flight.has_available_seats()
+        ]
+
+        
+
+    
+    
+    
+class TicketsViewSet(viewsets.ModelViewSet):
+    serializer_class = TicketsSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+    def get_queryset(self):
+        # Only tickets with at least one taken seat
+        return Tickets.objects.filter(
+            Q(passengers__departure_seat__is_taken=True) |
+            Q(passengers__return_seat__is_taken=True)
         ).distinct()
+        
+        

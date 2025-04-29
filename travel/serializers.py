@@ -187,8 +187,8 @@ class FooterSerializer(serializers.ModelSerializer):
 class FlightSearchSerializer(serializers.Serializer):
     from_here = serializers.CharField()
     to_there = serializers.CharField()
-    departure_date = serializers.CharField()
-    return_date = serializers.CharField()
+    departure_date = serializers.DateField()
+    return_date = serializers.DateField(required=False, allow_null=True)
     adult_count = serializers.IntegerField()
     child_count = serializers.IntegerField()
     baby_count = serializers.IntegerField()
@@ -209,7 +209,7 @@ class PassengersSerializer(serializers.ModelSerializer):
 
 
 class TicketsSerializer(serializers.ModelSerializer):
-    passengers = PassengersSerializer(many=True, read_only=True)  # related_name="passengers"
+    passengers = PassengersSerializer(many=True, read_only=True)
 
     class Meta:
         model = Tickets
@@ -219,7 +219,15 @@ class TicketsSerializer(serializers.ModelSerializer):
 class FlightsSerializer(serializers.ModelSerializer):
     tickets = TicketsSerializer(many=True, read_only=True)  # related_name="tickets"
     flight_seats = FlightSeatsSerializer(many=True, read_only=True)  # related_name="flight_seats"
+    available_departure_seats = serializers.SerializerMethodField()
+    available_return_seats = serializers.SerializerMethodField()
 
     class Meta:
         model = Flights
         fields = '__all__'
+
+    def get_available_departure_seats(self, obj):
+        return obj.available_departure_seats()
+
+    def get_available_return_seats(self, obj):
+        return obj.available_return_seats()

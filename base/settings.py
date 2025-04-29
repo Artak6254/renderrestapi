@@ -16,8 +16,7 @@ SECRET_KEY = 'django-insecure-l#&mcg+!oqr5s*+sr^p492a*$#ekzuvv)5zn7k7b$fn#+@fv8@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['renderrestapi-snvr.onrender.com', 'localhost', '127.0.0.1']
-
+ALLOWED_HOSTS = [ 'localhost', '127.0.0.1']
 # SESSION SECURITY
 CSRF_COOKIE_NAME = "csrf_token"
 SESSION_COOKIE_SECURE = False  # Only send cookies over HTTPS
@@ -109,16 +108,15 @@ WSGI_APPLICATION = 'base.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'arrive'),
-        'USER': os.getenv('DB_USER', 'arrive_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'qqI7oI5DtBe0cVsEKdMaxHqDhTJ6dF9l'),
-        'HOST': os.getenv('DB_HOST', 'dpg-cvhpt352ng1s739ttij0-a.oregon-postgres.render.com'),
+        'NAME': 'NovAir',
+        'USER': 'postgres',  # քո postgres default user-ը
+        'PASSWORD': '1234',
+        'HOST': '127.0.0.1',
         'PORT': '5432',
     }
 }
-
-# Alternative way to set database with dj_database_url
-DATABASES['default'] = dj_database_url.config(default="postgresql://arrive_user:qqI7oI5DtBe0cVsEKdMaxHqDhTJ6dF9l@dpg-cvhpt352ng1s739ttij0-a.oregon-postgres.render.com/arrive")
+# # Alternative way to set database with dj_database_url
+# DATABASES['default'] = dj_database_url.config(default="postgresql://arrive_user:qqI7oI5DtBe0cVsEKdMaxHqDhTJ6dF9l@dpg-cvhpt352ng1s739ttij0-a.oregon-postgres.render.com/arrive")
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

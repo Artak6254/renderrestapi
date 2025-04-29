@@ -195,17 +195,19 @@ class FooterSocial(models.Model):
 
 #------- booking ----------
 
+# models.py
+
 class Flights(models.Model): 
     is_active = models.BooleanField(default=True)
     from_here = models.CharField(max_length=120)
     to_there = models.CharField(max_length=120)
     airport_name = models.CharField(max_length=100, default="Unknown Airport")
     airport_short_name = models.CharField(max_length=100, default="Unknown short Airport")
-    departure_date = models.CharField(max_length=20, default="01-01-2025")
+    departure_date = models.CharField(max_length=20, default="2025-03-12")
     departure_time = models.CharField(max_length=20, default="00:00")
     arrival_time = models.CharField(max_length=20, default="00:00")
-    return_date = models.CharField(max_length=20, default="02-01-2025")
-    return_departure_time = models.CharField(max_length=20, default="00:00")
+    departure_date = models.DateField(default="2025-03-12")
+    return_date = models.DateField()
     return_arrival_time = models.CharField(max_length=20, default="00:00")
     bort_number = models.CharField(max_length=50)
 
@@ -213,11 +215,14 @@ class Flights(models.Model):
         return f"{self.from_here} ➝ {self.to_there} ({self.departure_date})"
 
     def has_available_seats(self, required_count=1):
-        """Վերադարձնում է՝ արդյոք կա ազատ տեղ departure և return ուղղություններով"""
-        return (
-            self.flight_seats.filter(seat_type='departure', is_taken=False).count() >= required_count and
-            self.flight_seats.filter(seat_type='return', is_taken=False).count() >= required_count
-        )
+        """Վերադարձնում է՝ արդյոք կա գոնե N ազատ տեղ"""
+        return self.flight_seats.filter(is_taken=False).count() >= required_count
+
+    def available_departure_seats(self):
+        return self.flight_seats.filter(seat_type='departure', is_taken=False).count()
+
+    def available_return_seats(self):
+        return self.flight_seats.filter(seat_type='return', is_taken=False).count()
 
 
 class Tickets(models.Model):
@@ -239,14 +244,13 @@ class FlightSeats(models.Model):
         ('return', 'Return'),
     ]
 
-    flight_id = models.ForeignKey(Flights, on_delete=models.CASCADE, related_name="flight_seats")
+    flight = models.ForeignKey(Flights, related_name='flight_seats', on_delete=models.CASCADE)
     seat_number = models.CharField(max_length=10)
+    seat_type = models.CharField(max_length=10, choices=SEAT_TYPE_CHOICES)
     is_taken = models.BooleanField(default=False)
-    seat_type = models.CharField(max_length=10, choices=SEAT_TYPE_CHOICES, default='departure')
 
     def __str__(self):
-        return f"{self.flight_id.bort_number} - Seat {self.seat_number} ({self.seat_type}) ({'Taken' if self.is_taken else 'Free'})"
-
+        return f"{self.flight} | {self.seat_type.upper()} Seat {self.seat_number}"
 
 class Passengers(models.Model):
     ticket_id = models.ForeignKey(Tickets, on_delete=models.CASCADE, related_name="passengers")

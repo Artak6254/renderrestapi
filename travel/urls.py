@@ -3,9 +3,9 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     LogoViewSet, NavbarsViewSet, 
     HomePageIntroViewSet, HomePageWhyChooseUsViewSet,
-    HomePageFaqViewSet, FooterViewSet, BookingSearchViewSet,LanguageListViewSet, 
+    HomePageFaqViewSet, FooterViewSet, BookingSearchViewSet, LanguageListViewSet, 
     FlightsViewSet, FlightSeatsViewSet, TicketsViewSet, PassngersViewSet,
-    my_login_view, my_logout_view, AvailableFlightsView
+    my_login_view, my_logout_view, SearchAvailableFlightsView
 )
 
 router = DefaultRouter()
@@ -22,12 +22,9 @@ router.register(r'flights_seats', FlightSeatsViewSet, basename="flights_seats")
 router.register(r'tickets', TicketsViewSet, basename="tickets")
 router.register(r'passangers', PassngersViewSet, basename="passangers")
 
-
-
-
 urlpatterns = [
     path('api/', include(router.urls)),
-    path("flights/search/", AvailableFlightsView.as_view(), name="available-flights"),
+    path('api/search-flights/', SearchAvailableFlightsView.as_view(), name="search_flights"),  # ✅ Ահա այստեղ ճիշտ գրանցված է
     path('api-auth/', include('rest_framework.urls')),
     path('login/', my_login_view, name="login"),
     path('logout/', my_logout_view, name="logout"),
