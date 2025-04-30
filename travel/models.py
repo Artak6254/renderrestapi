@@ -229,14 +229,18 @@ class Tickets(models.Model):
     flight_id = models.ForeignKey(Flights, on_delete=models.CASCADE, related_name="tickets")
     is_active = models.BooleanField(default=False)
     is_sold = models.BooleanField(default=False)
-    adult_count = models.CharField(max_length=10, default=0)
-    child_count = models.CharField(max_length=10, default=0)
-    baby_count = models.CharField(max_length=10, default=0)
+    adult_count = models.IntegerField(default=0)
+    child_count = models.IntegerField(default=0)
+    baby_count = models.IntegerField(default=0)
     departure_price = models.CharField(max_length=10, default=0)
     return_price = models.CharField(max_length=10, default=0)
 
     def __str__(self):
         return f"Ticket #{self.id} | Flight: {self.flight_id}"
+
+
+
+
 
 class FlightSeats(models.Model):
     SEAT_TYPE_CHOICES = [

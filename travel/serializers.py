@@ -192,11 +192,13 @@ class FlightSearchSerializer(serializers.Serializer):
     adult_count = serializers.IntegerField()
     child_count = serializers.IntegerField()
     baby_count = serializers.IntegerField()
+    
+    
 
 class FlightSeatsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FlightSeats
-        fields = '__all__'
+        fields = ['id', 'seat_number', 'is_taken'] 
 
 
 class PassengersSerializer(serializers.ModelSerializer):

@@ -1,6 +1,6 @@
 import logging
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Q
+from django.db.models import Q, F
 from django.http import JsonResponse
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -36,6 +36,8 @@ from .serializers import (
     HomePageFaqSerializer, FooterSerializer, FlightsSerializer, FlightSeatsSerializer,
     TicketsSerializer, PassengersSerializer,FlightSearchSerializer
 )
+
+
 
 # Log կարգավորումներ
 logger = logging.getLogger(__name__)
@@ -180,93 +182,84 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
-
 class SearchAvailableFlightsView(APIView):
     def post(self, request):
-        serializer = FlightSearchSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        from_here = request.data.get("from_here")
+        to_there = request.data.get("to_there")
+        departure_date = request.data.get("departure_date")
+        return_date = request.data.get("return_date", None)
+        adult_count = int(request.data.get("adult_count", 0))
+        child_count = int(request.data.get("child_count", 0))
+        baby_count = int(request.data.get("baby_count", 0))
 
-        data = serializer.validated_data
-        adult_count = data.get("adult_count", 0)
-        child_count = data.get("child_count", 0)
-        baby_count = data.get("baby_count", 0)
-        total_passengers = adult_count + child_count
+        total_passenger_count = adult_count + child_count + baby_count
 
-        from_here = data["from_here"]
-        to_there = data["to_there"]
-        departure_date = str(data["departure_date"])
-        return_date = str(data["return_date"]) if data.get("return_date") else None
+        def get_flight_data(from_h, to_h, dep_date):
+            try:
+                flight = Flights.objects.get(
+                    from_here=from_h,
+                    to_there=to_h,
+                    departure_date=dep_date,
+                    is_active=True
+                )
 
-        # === Գնալու թռիչք ===
-        departure_flights = Flights.objects.filter(
-            from_here=from_here,
-            to_there=to_there,
-            departure_date=departure_date,
-            is_active=True
-        )
+                all_tickets = Tickets.objects.filter(
+                    flight_id=flight.id,
+                    is_active=True,
+                    is_sold=False
+                ).order_by("id")
 
-        departure_result = None
-        for flight in departure_flights:
-            tickets = list(Tickets.objects.filter(
-                flight_id=flight,
-                is_sold=False,
-                is_active=True
-            )[:total_passengers])
-            if len(tickets) >= total_passengers:
-                departure_result = {
-                    "flight": flight,
-                    "tickets": tickets
+                all_seats = FlightSeats.objects.filter(
+                    flight=flight,
+                    is_taken=False
+                ).order_by("id")
+
+                if all_tickets.count() < total_passenger_count or all_seats.count() < total_passenger_count:
+                    return None
+
+                selected_tickets = all_tickets[:total_passenger_count]
+                selected_seats = all_seats[:total_passenger_count]
+
+                flight_data = FlightsSerializer(flight).data
+                flight_data["tickets"] = TicketsSerializer(selected_tickets, many=True).data
+                flight_data["flight_seats"] = FlightSeatsSerializer(selected_seats, many=True).data
+
+                return {
+                    "flight": flight_data,
+                    "baby_count": baby_count
                 }
-                break
 
-        if not departure_result:
-            return Response({"message": "Բավարար ազատ տոմսեր չկան գնալու թռիչքի համար։"}, status=status.HTTP_404_NOT_FOUND)
+            except Flights.DoesNotExist:
+                return None
+
+        # Գտնում ենք գնալու և հետ գալու տվյալները
+        departure_flight_data = get_flight_data(from_here, to_there, departure_date)
+        return_flight_data = get_flight_data(to_there, from_here, return_date) if return_date else None
+
+        if not departure_flight_data:
+            return Response({"message": "Համապատասխան մեկնող թռիչք չի գտնվել։"}, status=status.HTTP_404_NOT_FOUND)
+
+        if return_date and not return_flight_data:
+            return Response({"message": "Համապատասխան վերադարձի թռիչք չի գտնվել։"}, status=status.HTTP_404_NOT_FOUND)
 
     
-        return_result = None
-        if return_date:
-            return_flights = Flights.objects.filter(
-                from_here=to_there,
-                to_there=from_here,
-                departure_date=return_date,
-                is_active=True
-            )
-
-            for flight in return_flights:
-                tickets = list(Tickets.objects.filter(
-                    flight_id=flight,
-                    is_sold=False,
-                    is_active=True
-                )[:total_passengers])
-                if len(tickets) >= total_passengers:
-                    return_result = {
-                        "flight": flight,
-                        "tickets": tickets
-                    }
-                    break
-
-            if not return_result:
-                return Response({"message": "Բավարար ազատ տոմսեր չկան վերադառնալու թռիչքի համար։"}, status=status.HTTP_404_NOT_FOUND)
-
         response_data = {
             "message": "Թռիչքները և տոմսերը հաջողությամբ գտնվեցին։",
-            "departure": {
-                "flight_id": departure_result["flight"].id,
-                "tickets": TicketsSerializer(departure_result["tickets"], many=True).data
-            }
+            "departure": departure_flight_data
         }
 
-        if return_result:
-            response_data["return"] = {
-                "flight_id": return_result["flight"].id,
-                "tickets": TicketsSerializer(return_result["tickets"], many=True).data
-            }
+        if return_flight_data:
+            response_data["return"] = return_flight_data
 
         return Response(response_data, status=status.HTTP_200_OK)
-
-            
-             
+        
+        
+        
+        
+        
+        
+        
+        
         
 class PassngersViewSet(viewsets.ModelViewSet):
     serializer_class = PassengersSerializer
