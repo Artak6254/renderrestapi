@@ -1,4 +1,5 @@
 import logging
+from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, F
 from django.http import JsonResponse
@@ -180,9 +181,9 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
-
-
 class SearchAvailableFlightsView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         from_here = request.data.get("from_here")
         to_there = request.data.get("to_there")
@@ -209,20 +210,37 @@ class SearchAvailableFlightsView(APIView):
                     is_sold=False
                 ).order_by("id")
 
-                all_seats = FlightSeats.objects.filter(
-                    flight=flight,
-                    is_taken=False
-                ).order_by("id")
-
-                if all_tickets.count() < total_passenger_count or all_seats.count() < total_passenger_count:
+                if all_tickets.count() < total_passenger_count:
                     return None
 
                 selected_tickets = all_tickets[:total_passenger_count]
-                selected_seats = all_seats[:total_passenger_count]
+
+                # Բաժանում ենք տոմսերը ըստ նրանց մարդու քանակի
+                tickets_data = []
+                remaining_adults = adult_count
+                remaining_children = child_count
+                remaining_babies = baby_count
+
+                # Օգտագործել տարբեր տոմսեր ըստ մարդկանց քանակի
+                for ticket in selected_tickets:
+                    if remaining_adults > 0:
+                        ticket.adult_count = 1
+                        remaining_adults -= 1
+                    elif remaining_children > 0:
+                        ticket.child_count = 1
+                        remaining_children -= 1
+                    elif remaining_babies > 0:
+                        ticket.baby_count = 1
+                        remaining_babies -= 1
+                    else:
+                        break
+
+                    # Ավելացնում ենք տոմսը
+                    tickets_data.append(TicketsSerializer(ticket).data)
 
                 flight_data = FlightsSerializer(flight).data
-                flight_data["tickets"] = TicketsSerializer(selected_tickets, many=True).data
-                flight_data["flight_seats"] = FlightSeatsSerializer(selected_seats, many=True).data
+                flight_data.pop("flight_seats", None)  # Վերացնենք ավելորդ դաշտերը
+                flight_data["tickets"] = tickets_data
 
                 return {
                     "flight": flight_data,
@@ -232,17 +250,17 @@ class SearchAvailableFlightsView(APIView):
             except Flights.DoesNotExist:
                 return None
 
-        # Գտնում ենք գնալու և հետ գալու տվյալները
+        # Հիմնական թռիչքի և վերադարձի տվյալները
         departure_flight_data = get_flight_data(from_here, to_there, departure_date)
         return_flight_data = get_flight_data(to_there, from_here, return_date) if return_date else None
 
         if not departure_flight_data:
-            return Response({"message": "Համապատասխան մեկնող թռիչք չի գտնվել։"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Համապատասխան մեկնող թռիչք կամ տոմսեր չեն գտնվվել։"}, status=status.HTTP_404_NOT_FOUND)
 
         if return_date and not return_flight_data:
-            return Response({"message": "Համապատասխան վերադարձի թռիչք չի գտնվել։"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Համապատասխան վերադարձի թռիչք կամ տոմսեր չեն գտնվվել։"}, status=status.HTTP_404_NOT_FOUND)
 
-    
+        # Պատասխանի տվյալները
         response_data = {
             "message": "Թռիչքները և տոմսերը հաջողությամբ գտնվեցին։",
             "departure": departure_flight_data
@@ -252,7 +270,7 @@ class SearchAvailableFlightsView(APIView):
             response_data["return"] = return_flight_data
 
         return Response(response_data, status=status.HTTP_200_OK)
-        
+
         
         
         
@@ -263,7 +281,7 @@ class SearchAvailableFlightsView(APIView):
         
 class PassngersViewSet(viewsets.ModelViewSet):
     serializer_class = PassengersSerializer
-    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         return Passengers.objects.filter(
@@ -275,6 +293,7 @@ class PassngersViewSet(viewsets.ModelViewSet):
 
 
 class FlightSeatsViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
     serializer_class = FlightSeatsSerializer
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
@@ -290,15 +309,11 @@ class FlightSeatsViewSet(viewsets.ModelViewSet):
 
 class FlightsViewSet(viewsets.ModelViewSet):
     serializer_class = FlightsSerializer
-    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
     def get_queryset(self):
-        return [
-            flight for flight in Flights.objects.filter(is_active=True)
-            if flight.has_available_seats()
-        ]
-
-        
+        return Flights.objects.filter(is_active=True).filter(
+            id__in=[f.id for f in Flights.objects.all() if f.has_available_seats()]
+        )
 
     
     

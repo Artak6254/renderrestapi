@@ -196,18 +196,39 @@ class FlightSearchSerializer(serializers.Serializer):
     
 
 class FlightSeatsSerializer(serializers.ModelSerializer):
+    flight_id = serializers.PrimaryKeyRelatedField(queryset=Flights.objects.all(), source='flight')
+
     class Meta:
         model = FlightSeats
-        fields = ['id', 'seat_number', 'is_taken'] 
+        fields = ['flight_id', 'seat_number', 'is_taken']
+
+
 
 
 class PassengersSerializer(serializers.ModelSerializer):
+    ticket_id = serializers.PrimaryKeyRelatedField(queryset=Tickets.objects.all())
     departure_seat = FlightSeatsSerializer(read_only=True)
     return_seat = FlightSeatsSerializer(read_only=True)
 
+    departure_baggage_weight = serializers.CharField(required=False, allow_null=True)
+    return_baggage_weight = serializers.CharField(required=False, allow_null=True)
+
     class Meta:
         model = Passengers
-        fields = '__all__'
+        fields = [
+            'ticket_id',
+            'phone',
+            'email',
+            'title',
+            'full_name',
+            'date_of_birth',
+            'citizenship',
+            'passport_serial',
+            'departure_baggage_weight',
+            'return_baggage_weight',
+            'departure_seat',
+            'return_seat'
+        ]
 
 
 class TicketsSerializer(serializers.ModelSerializer):

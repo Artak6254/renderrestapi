@@ -265,8 +265,8 @@ class Passengers(models.Model):
     date_of_birth = models.CharField(max_length=20)
     citizenship = models.CharField(max_length=30)
     passport_serial = models.CharField(max_length=60)
-    departure_baggage_weight = models.CharField(max_length=20)
-    return_baggage_weight = models.CharField(max_length=20)
+    departure_baggage_weight = models.CharField(max_length=20, blank=True, null=True)
+    return_baggage_weight = models.CharField(max_length=20, blank=True, null=True)
     departure_seat = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="departure_passengers")
     return_seat = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="return_passengers")
 
