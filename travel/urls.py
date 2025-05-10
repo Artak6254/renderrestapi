@@ -5,7 +5,8 @@ from .views import (
     HomePageIntroViewSet, HomePageWhyChooseUsViewSet,
     HomePageFaqViewSet, FooterViewSet, BookingSearchViewSet, LanguageListViewSet, 
     FlightsViewSet, FlightSeatsViewSet, TicketsViewSet, PassngersViewSet,
-    my_login_view, my_logout_view, SearchAvailableFlightsView
+    my_login_view, my_logout_view, SearchAvailableFlightsView,PassangersCountViewSet,
+    FlightDirectionViewSet
 )
 
 router = DefaultRouter()
@@ -21,6 +22,8 @@ router.register(r'flights', FlightsViewSet, basename="flights")
 router.register(r'flights_seats', FlightSeatsViewSet, basename="flights_seats")
 router.register(r'tickets', TicketsViewSet, basename="tickets")
 router.register(r'passangers', PassngersViewSet, basename="passangers")
+router.register(r'passangers_count', PassangersCountViewSet, basename="passangers_count")
+router.register(r'flight_direction', FlightDirectionViewSet, basename="flight_direction")
 
 urlpatterns = [
     path('api/', include(router.urls)),

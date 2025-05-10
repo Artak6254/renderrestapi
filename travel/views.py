@@ -25,17 +25,21 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from reportlab.pdfgen import canvas
 from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from .utils import generate_flight_ticket_pdf
 from io import BytesIO
-
+from datetime import datetime
 from travel.permissions import IsAdminOrOwner
 from .models import (
     Logo, Navbars, HomepageBookingSearch, HomePageIntro, LanguageList,
-    HomePageWhyChooseUs, HomePageFaq, Footer, Flights, FlightSeats, Passengers, Tickets)
+    HomePageWhyChooseUs, HomePageFaq, Footer, Flights, FlightSeats, Passengers, 
+    Tickets, PassangersCount, FlightDirection)
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
     HomePageIntroSerializer, HomePageWhyChooseUsSerializer, LanguageListSerializer,
     HomePageFaqSerializer, FooterSerializer, FlightsSerializer, FlightSeatsSerializer,
-    TicketsSerializer, PassengersSerializer,FlightSearchSerializer
+    TicketsSerializer, PassengersSerializer,FlightSearchSerializer, PassangersCountSerializer,
+    FlightDirectionSerializer
 )
 
 
@@ -181,6 +185,7 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
+
 class SearchAvailableFlightsView(APIView):
     permission_classes = [AllowAny]
 
@@ -188,91 +193,141 @@ class SearchAvailableFlightsView(APIView):
         from_here = request.data.get("from_here")
         to_there = request.data.get("to_there")
         departure_date = request.data.get("departure_date")
-        return_date = request.data.get("return_date", None)
+        return_date = request.data.get("return_date")
+
+        if not all([from_here, to_there]) or (not departure_date and not return_date):
+            return Response({
+                "error": "Provide at least one of departure_date or return_date, along with from_here and to_there"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Parse dates
+        try:
+            departure_date = datetime.strptime(departure_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "error": "Invalid departure_date format. Use YYYY-MM-DD."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if return_date:
+            try:
+                return_date = datetime.strptime(return_date, "%Y-%m-%d").date()
+            except ValueError:
+                return Response({
+                    "error": "Invalid return_date format. Use YYYY-MM-DD."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         adult_count = int(request.data.get("adult_count", 0))
         child_count = int(request.data.get("child_count", 0))
         baby_count = int(request.data.get("baby_count", 0))
-
         total_passenger_count = adult_count + child_count + baby_count
+        seat_needed_count = adult_count + child_count  
 
-        def get_flight_data(from_h, to_h, dep_date):
-            try:
-                flight = Flights.objects.get(
-                    from_here=from_h,
-                    to_there=to_h,
-                    departure_date=dep_date,
-                    is_active=True
-                )
+        def collect_flights(from_h, to_h, date, seat_type):
+            results = []
+            flights = Flights.objects.filter(
+                from_here=from_h,
+                to_there=to_h,
+                departure_date=date,
+                is_active=True
+            )
 
-                all_tickets = Tickets.objects.filter(
-                    flight_id=flight.id,
+            for flight in flights:
+                available_seats = FlightSeats.objects.filter(
+                    flight=flight,
+                    seat_type=seat_type,
+                    is_taken=False
+                ).order_by("seat_number")
+
+                if available_seats.count() < seat_needed_count:
+                    continue
+
+                available_tickets = Tickets.objects.filter(
+                    flight_id=flight,
                     is_active=True,
                     is_sold=False
                 ).order_by("id")
 
-                if all_tickets.count() < total_passenger_count:
-                    return None
+                if available_tickets.count() < total_passenger_count:
+                    continue
 
-                selected_tickets = all_tickets[:total_passenger_count]
-
-                # Բաժանում ենք տոմսերը ըստ նրանց մարդու քանակի
-                tickets_data = []
+                selected_tickets = available_tickets[:total_passenger_count]
                 remaining_adults = adult_count
                 remaining_children = child_count
                 remaining_babies = baby_count
+                tickets_data = []
 
-                # Օգտագործել տարբեր տոմսեր ըստ մարդկանց քանակի
-                for ticket in selected_tickets:
+              
+                for i, ticket in enumerate(selected_tickets):
+                    seat = available_seats[i] if i < seat_needed_count else None
+
+                    passenger_type = None
                     if remaining_adults > 0:
-                        ticket.adult_count = 1
+                        passenger_type = "adult"
                         remaining_adults -= 1
                     elif remaining_children > 0:
-                        ticket.child_count = 1
+                        passenger_type = "child"
                         remaining_children -= 1
                     elif remaining_babies > 0:
-                        ticket.baby_count = 1
+                        passenger_type = "baby"
                         remaining_babies -= 1
-                    else:
-                        break
 
-                    # Ավելացնում ենք տոմսը
-                    tickets_data.append(TicketsSerializer(ticket).data)
+                    serialized_ticket = TicketsSerializer(ticket).data
+                    # if seat:
+                    #     serialized_ticket["seat"] = seat.seat_number
+                    serialized_ticket["passenger_type"] = passenger_type
+                    tickets_data.append(serialized_ticket)
 
                 flight_data = FlightsSerializer(flight).data
-                flight_data.pop("flight_seats", None)  # Վերացնենք ավելորդ դաշտերը
                 flight_data["tickets"] = tickets_data
 
-                return {
-                    "flight": flight_data,
-                    "baby_count": baby_count
-                }
+                # Միայն ուղևորների քանակով նստատեղեր
+                flight_data["flight_seats"] = [
+                    {
+                        "id": seat.id,
+                        "flight_id": seat.flight.id,
+                        "seat_number": seat.seat_number,
+                        "is_taken": seat.is_taken
+                    }
+                    for seat in available_seats[:seat_needed_count]
+                ]
 
-            except Flights.DoesNotExist:
-                return None
+                flight_data["available_departure_seats"] = FlightSeats.objects.filter(
+                    flight=flight, seat_type="departure", is_taken=False
+                ).count()
+                flight_data["available_return_seats"] = FlightSeats.objects.filter(
+                    flight=flight, seat_type="return", is_taken=False
+                ).count()
 
-        # Հիմնական թռիչքի և վերադարձի տվյալները
-        departure_flight_data = get_flight_data(from_here, to_there, departure_date)
-        return_flight_data = get_flight_data(to_there, from_here, return_date) if return_date else None
+                results.append(flight_data)
 
-        if not departure_flight_data:
-            return Response({"message": "Համապատասխան մեկնող թռիչք կամ տոմսեր չեն գտնվվել։"}, status=status.HTTP_404_NOT_FOUND)
+            return results
 
-        if return_date and not return_flight_data:
-            return Response({"message": "Համապատասխան վերադարձի թռիչք կամ տոմսեր չեն գտնվվել։"}, status=status.HTTP_404_NOT_FOUND)
+        departure_flights = collect_flights(from_here, to_there, departure_date, seat_type="departure")
+        return_flights = collect_flights(to_there, from_here, return_date, seat_type="return") if return_date else []
 
-        # Պատասխանի տվյալները
+        if not departure_flights:
+            return Response({
+                "en": "No matching departure flights or tickets found.",
+                "ru": "Подходящие рейсы на отправление или билеты не найдены.",
+                "am": "Համապատասխան գնալու թռիչքներ կամ տոմսեր չեն գտնվել։"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if return_date and not return_flights:
+            return Response({
+                "en": "No matching return flights or tickets found.",
+                "ru": "Подходящие рейсы на возвращение или билеты не найдены.",
+                "am": "Համապատասխան վերադարձի թռիչքներ կամ տոմսեր չեն գտնվել։"
+            }, status=status.HTTP_404_NOT_FOUND)
+
         response_data = {
             "message": "Թռիչքները և տոմսերը հաջողությամբ գտնվեցին։",
-            "departure": departure_flight_data
+            "departure_flights": departure_flights
         }
 
-        if return_flight_data:
-            response_data["return"] = return_flight_data
+        if return_flights:
+            response_data["return_flights"] = return_flights
 
         return Response(response_data, status=status.HTTP_200_OK)
-
-        
-        
         
         
         
@@ -288,6 +343,22 @@ class PassngersViewSet(viewsets.ModelViewSet):
             Q(departure_seat__isnull=False) | Q(return_seat__isnull=False)
         ).distinct()
 
+    def perform_create(self, serializer):
+        passenger = serializer.save()
+
+        # Գեներացնել PDF
+        pdf_file = generate_flight_ticket_pdf(passenger)
+
+        # Կցել PDF-ը ուղարկվող նամակին
+        if pdf_file:
+            email = EmailMessage(
+                subject="Ձեր ավիատոմսը",
+                body="Խնդրում ենք կցվածում գտնել Ձեր տոմսը:",
+                from_email="noreply@yourdomain.com",
+                to=[passenger.email],
+            )
+            email.attach("ticket.pdf", pdf_file, "application/pdf")
+            email.send()
 
 
 
@@ -319,14 +390,30 @@ class FlightsViewSet(viewsets.ModelViewSet):
     
     
 class TicketsViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
     serializer_class = TicketsSerializer
-    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
     def get_queryset(self):
-        # Only tickets with at least one taken seat
-        return Tickets.objects.filter(
-            Q(passengers__departure_seat__is_taken=True) |
-            Q(passengers__return_seat__is_taken=True)
-        ).distinct()
+        if self.action == 'list':
+            return Tickets.objects.exclude(
+                Q(passengers__departure_seat__is_taken=True) |
+                Q(passengers__return_seat__is_taken=True)
+            ).distinct()
+        return Tickets.objects.all()
+
         
         
+
+
+
+class PassangersCountViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = PassangersCount.objects.all()
+    serializer_class = PassangersCountSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+
+class FlightDirectionViewSet(viewsets.ModelViewSet):
+    queryset = FlightDirection.objects.all()
+    serializer_class = FlightDirectionSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]    

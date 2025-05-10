@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
-
+import random
 
 
 class LanguageList(models.Model):
@@ -163,6 +163,8 @@ class Footer(models.Model):
     lang = models.CharField(max_length=20)
     class Meta:
         ordering = ['id'] 
+        
+        
 class FooterLinks(models.Model):
     footer = models.ForeignKey(
         Footer, 
@@ -203,12 +205,9 @@ class Flights(models.Model):
     to_there = models.CharField(max_length=120)
     airport_name = models.CharField(max_length=100, default="Unknown Airport")
     airport_short_name = models.CharField(max_length=100, default="Unknown short Airport")
-    departure_date = models.CharField(max_length=20, default="2025-03-12")
     departure_time = models.CharField(max_length=20, default="00:00")
     arrival_time = models.CharField(max_length=20, default="00:00")
-    departure_date = models.DateField(default="2025-03-12")
-    return_date = models.DateField()
-    return_arrival_time = models.CharField(max_length=20, default="00:00")
+    departure_date = models.DateField(default="")
     bort_number = models.CharField(max_length=50)
 
     def __str__(self):
@@ -225,20 +224,50 @@ class Flights(models.Model):
         return self.flight_seats.filter(seat_type='return', is_taken=False).count()
 
 
+
+
 class Tickets(models.Model):
-    flight_id = models.ForeignKey(Flights, on_delete=models.CASCADE, related_name="tickets")
+    flight_id = models.ForeignKey("Flights", on_delete=models.CASCADE, related_name="tickets")
     is_active = models.BooleanField(default=False)
     is_sold = models.BooleanField(default=False)
+    price = models.CharField(max_length=10, default="0")
+    ticket_number = models.BigIntegerField(unique=True, blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if self.ticket_number is None:
+            self.ticket_number = self.generate_unique_ticket_number()
+        super().save(*args, **kwargs)
+
+    def generate_unique_ticket_number(self):
+        while True:
+            number = random.randint(1000000000, 9999999999)
+            if not Tickets.objects.filter(ticket_number=number).exists():
+                return number
+
+    def __str__(self):
+        return f"Ticket #{self.ticket_number} | Flight: {self.flight_id}"
+
+
+
+class PassangersCount(models.Model):
+    flight_id = models.ForeignKey(Flights, on_delete=models.CASCADE, related_name="passangers_count")
     adult_count = models.IntegerField(default=0)
     child_count = models.IntegerField(default=0)
     baby_count = models.IntegerField(default=0)
-    departure_price = models.CharField(max_length=10, default=0)
-    return_price = models.CharField(max_length=10, default=0)
-
+   
     def __str__(self):
-        return f"Ticket #{self.id} | Flight: {self.flight_id}"
+        return f"Adult #{self.adult_count} | Child: {self.child_count} | Baby: {self.baby_count}"
 
-
+ 
+ 
+ 
+class FlightDirection(models.Model):
+    from_there = models.CharField(max_length=100)    
+    to_there = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return f"{self.from_there} {self.to_there}"
+    
 
 
 
@@ -256,19 +285,23 @@ class FlightSeats(models.Model):
     def __str__(self):
         return f"{self.flight} | {self.seat_type.upper()} Seat {self.seat_number}"
 
+
+
+
 class Passengers(models.Model):
     ticket_id = models.ForeignKey(Tickets, on_delete=models.CASCADE, related_name="passengers")
     phone = models.CharField(max_length=50)
     email = models.EmailField(max_length=60)
     title = models.CharField(max_length=10)
     full_name = models.CharField(max_length=100)
-    date_of_birth = models.CharField(max_length=20)
+    date_of_birth = models.DateField(null=True, default='2000-01-01')
     citizenship = models.CharField(max_length=30)
     passport_serial = models.CharField(max_length=60)
     departure_baggage_weight = models.CharField(max_length=20, blank=True, null=True)
     return_baggage_weight = models.CharField(max_length=20, blank=True, null=True)
-    departure_seat = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="departure_passengers")
-    return_seat = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="return_passengers")
+    departure_seat_id = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="departure_passengers", null=True, blank=True)
+    return_seat_id = models.ForeignKey(FlightSeats, on_delete=models.CASCADE, related_name="return_passengers", null=True, blank=True)
+
 
     def __str__(self):
         return f"{self.full_name} ({self.passport_serial})"

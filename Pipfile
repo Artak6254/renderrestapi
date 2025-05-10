@@ -13,6 +13,7 @@ django-ratelimit = "*"
 django-cors-headers = "*"
 pymemcache = "*"
 reportlab = "*"
+django-admin-rangefilter = "*"
 
 [dev-packages]
 

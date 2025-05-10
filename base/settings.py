@@ -16,7 +16,7 @@ SECRET_KEY = 'django-insecure-l#&mcg+!oqr5s*+sr^p492a*$#ekzuvv)5zn7k7b$fn#+@fv8@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [ 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['*']
 # SESSION SECURITY
 CSRF_COOKIE_NAME = "csrf_token"
 SESSION_COOKIE_SECURE = False  # Only send cookies over HTTPS
@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Պետք է Django Admin-ի համար
     'rest_framework',
+    'rangefilter',
     'django_ratelimit',
     'corsheaders',  # CORS
     'travel',

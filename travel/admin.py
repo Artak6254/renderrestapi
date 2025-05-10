@@ -1,6 +1,8 @@
 from django.contrib import admin
+from .forms import PassengersAdminForm 
 from django.contrib.sites.models import Site
 from .permissions import IsAdminOrOwner
+from rangefilter.filters import DateRangeFilter
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.templatetags.static import static
 
@@ -8,7 +10,8 @@ from .models import (
     Logo, Navbars, SubnavbarsList, HomePageIntro, HomepageBookingSearch, 
     CalendarFieldList, PassangerFieldList, HomePageWhyChooseUs, ReasonsList, 
     HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,
-    LanguageList, Tickets,Flights, FlightSeats, Passengers
+    LanguageList, Tickets,Flights, FlightSeats, Passengers,PassangersCount,
+    FlightDirection
 )
 
 
@@ -19,21 +22,33 @@ admin.site.index_title = 'Welcome to NOVAIR Admin Panel'
 
 
 
+admin.site.register(Logo)
+admin.site.register(HomePageIntro)
+admin.site.register(LanguageList)
+# admin.site.register(Passengers)
+admin.site.register(PassangersCount)
+admin.site.register(FlightDirection)
 
 
+@admin.register(Passengers)
+class PassengersAdmin(admin.ModelAdmin):
+    form = PassengersAdminForm
+    
+    
+    
 
 class FlightTicketInline(admin.TabularInline):
     model = Tickets
     extra = 0
     readonly_fields = (
-        'is_active', 'is_sold', 'adult_count',
-        'child_count', 'baby_count',
-        'departure_price', 'return_price'  # <<== Ուղղված է այստեղ
+        'is_active', 'is_sold',
+        'ticket_number',
+        'price'
     )
     can_delete = False
-
-
-
+    
+    
+    
 class FlightSeatsInline(admin.TabularInline):
     model = FlightSeats
     extra = 0  # չցուցադրել ավելորդ դատարկ row-եր
@@ -42,14 +57,35 @@ class FlightSeatsInline(admin.TabularInline):
 
 
 
+class TicketsInline(admin.TabularInline):
+    model = Tickets
+    extra = 0  
+    fields = ('is_active', 'is_sold','price')  
+    show_change_link = True
 
-admin.site.register(Logo)
-admin.site.register(HomePageIntro)
-admin.site.register(LanguageList)
-admin.site.register(Tickets)
-admin.site.register(Flights)
-admin.site.register(FlightSeats)
-admin.site.register(Passengers)
+
+
+class FlightSeatsInline(admin.TabularInline):
+    model = FlightSeats
+    extra = 0
+    fields = ('seat_number', 'seat_type', 'is_taken')
+    show_change_link = True
+
+
+
+
+
+@admin.register(Flights)
+class FlightsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'from_here', 'to_there', 'departure_date', 'is_active')
+    list_filter = (
+        ('departure_date', DateRangeFilter),
+        'from_here',
+        'to_there',
+        'is_active',
+    )
+    search_fields = ('from_here', 'to_there')
+    inlines = [TicketsInline, FlightSeatsInline]
 
 
 

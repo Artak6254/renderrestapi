@@ -1,11 +1,12 @@
 from rest_framework import serializers
+import re
 from django.db import transaction
 from .models import (
     LanguageList,Logo, Navbars, SubnavbarsList, HomepageBookingSearch,
     CalendarFieldList,PassangerFieldList,
     HomePageIntro, HomePageWhyChooseUs, ReasonsList, 
     HomePageFaq, HomePageQuestion, Footer, FooterLinks, FooterSocial,
-    Flights, FlightSeats, Passengers, Tickets
+    Flights, FlightSeats, Passengers, Tickets,PassangersCount,FlightDirection
 )
 
 class LanguageListSerializer(serializers.ModelSerializer):
@@ -200,43 +201,59 @@ class FlightSeatsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FlightSeats
-        fields = ['flight_id', 'seat_number', 'is_taken']
+        fields = ['id', 'flight_id', 'seat_number', 'is_taken']
+
+
 
 
 
 
 class PassengersSerializer(serializers.ModelSerializer):
     ticket_id = serializers.PrimaryKeyRelatedField(queryset=Tickets.objects.all())
-    departure_seat = FlightSeatsSerializer(read_only=True)
-    return_seat = FlightSeatsSerializer(read_only=True)
 
     departure_baggage_weight = serializers.CharField(required=False, allow_null=True)
     return_baggage_weight = serializers.CharField(required=False, allow_null=True)
 
+    
     class Meta:
         model = Passengers
-        fields = [
-            'ticket_id',
-            'phone',
-            'email',
-            'title',
-            'full_name',
-            'date_of_birth',
-            'citizenship',
-            'passport_serial',
-            'departure_baggage_weight',
-            'return_baggage_weight',
-            'departure_seat',
-            'return_seat'
-        ]
+        fields ='__all__'
+        
+    def validate(self, data):
+        passport_serial = data.get('passport_serial')
+        citizenship = data.get('citizenship')
 
+        PASSPORT_REGEXES = {
+            "Armenian": r"^[A-Z]{2}\d{6,7}$",
+            "Russian": r"^\d{10}$",
+            "USA": r"^\d{9}$",
+            "British": r"^\d{9}$",
+            "French": r"^\d{2}[A-Z]{2}\d{5}$"
+        }
+
+        pattern = PASSPORT_REGEXES.get(citizenship)
+        if pattern and not re.fullmatch(pattern, passport_serial):
+            raise serializers.ValidationError({
+                'passport_serial': f"Անվավեր անձնագրի ձևաչափ `{citizenship}` երկրի համար։"
+            })
+
+        return data  
+
+    
+       
 
 class TicketsSerializer(serializers.ModelSerializer):
-    passengers = PassengersSerializer(many=True, read_only=True)
+    passengers = PassengersSerializer(many=True)
+    ticket_number = serializers.ReadOnlyField()  # 👈 ավելացնում ենք այս տողը
 
     class Meta:
         model = Tickets
         fields = '__all__'
+
+
+
+
+
 
 
 class FlightsSerializer(serializers.ModelSerializer):
@@ -254,3 +271,18 @@ class FlightsSerializer(serializers.ModelSerializer):
 
     def get_available_return_seats(self, obj):
         return obj.available_return_seats()
+    
+    
+
+class PassangersCountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PassangersCount
+        fields = '__all__'    
+        
+        
+
+class FlightDirectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FlightDirection
+        fields = '__all__'            
+        

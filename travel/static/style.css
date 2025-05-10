@@ -1,0 +1,167 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+*{
+    font-family: "Roboto", sans-serif;
+    padding: 0;
+    margin: 0;
+    border: none;
+    list-style: none;
+    box-sizing: border-box;
+}
+.main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+.header{
+    padding: 2rem 0;
+    border-bottom: 3px solid blue;
+}
+.header .logo{
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.header h1{
+    font-size: 2.5rem;
+    color: rgb(67, 67, 239);
+}
+
+
+/* rezerv */
+
+.rezerv .rezerv_title{
+    color: rgb(67, 67, 239);
+    font-size: 1.2rem;
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.rezerv ul li{
+    margin: .5rem 0;
+}
+
+.rezerv .rezerv{
+    color: rgb(67, 67, 239);
+}
+.rezerv .contact{
+    color: rgb(67, 67, 239);
+}
+
+.rezerv .name{
+    font-size: .9rem;
+    color:gray
+}
+.rezerv .surname{
+    font-size: .9rem;
+    color:gray
+}
+.rezerv .phone{
+    font-size: .9rem;
+    color:gray
+}
+
+/* passanger */
+
+.passanger{
+    width: 100%;
+    padding:1rem 0 ;
+}
+.passanger .passangers_bg{
+    background: rgb(229, 229, 229);
+    width: 100%;
+    padding: .5rem 0;
+}
+.passanger .passangers_bg h2{
+    font-size: 1rem;
+}
+table{
+    width: 100%;
+    text-align: center;
+}
+
+
+/* count */
+
+.people_count{
+    padding: 1rem 0;
+}
+
+.people_count li{
+    padding: .3rem 0;
+}
+
+.total_price{
+    padding: 2rem 0;
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    font-size: 1rem;
+    color: black;
+}
+
+.total{
+    margin: 0 40px;
+}
+
+.vat{
+    margin: 0 40px;
+}
+.agency{
+    width: 30%;
+    padding:1rem 0 ;
+}
+.agency .passangers_bg{
+    background: rgb(229, 229, 229);
+    width: 100%;
+    padding: .5rem 0;
+}
+.agency .passangers_bg h2{
+    font-size: 1rem;
+}
+.total_remainder{
+    padding: 2rem 0;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    font-size: 1rem;
+    color: black;
+}
+.agency_claus{
+    margin: 1rem 0;
+}
+.agency_claus .passanger_bg h2{
+    font-size: 1rem;
+}
+.agency_claus .passanger_bg{
+    background: rgb(229, 229, 229);
+    width: 100%;
+    padding: .5rem 0;
+}
+
+
+.agency_claus .passangers_bg h2{
+    font-size: 1rem;
+}
+.agency_claus .descr{
+    margin: .7rem 0;
+}
+.agency_claus ol li span{
+    color: rgb(67, 67, 239);
+    font-size: .9rem;
+}
+.agency_claus .warrning{
+    padding: 1rem 0;
+}
+.agency_claus .warrning h5{
+    font-size: 1rem;
+    margin-bottom: .5rem;
+    color: blue;
+}
+
+.agency_claus .warrning p{
+    padding-left: 2rem;
+    color: rgb(67, 67, 239);
+}
