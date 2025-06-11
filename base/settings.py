@@ -10,6 +10,9 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-l#&mcg+!oqr5s*+sr^p492a*$#ekzuvv)5zn7k7b$fn#+@fv8@'
 
@@ -39,6 +42,19 @@ CACHES = {
     }
 }
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'poghos877@gmail.com'
+EMAIL_HOST_PASSWORD = 'qisj bgvg yqfb xjvw'
+
+
+
+
+
+
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -48,7 +64,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Պետք է Django Admin-ի համար
+        'django_admin_search',
     'rest_framework',
+     'sslserver',
     'rangefilter',
     'django_ratelimit',
     'corsheaders',  # CORS
@@ -66,6 +84,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
+
 
 # Django REST Framework settings
 REST_FRAMEWORK = {
@@ -85,12 +104,13 @@ REST_FRAMEWORK = {
 }
 
 ROOT_URLCONF = 'base.urls'
-
+CORS_ALLOW_ALL_ORIGINS = True
 # Templates settings
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [ os.path.join(BASE_DIR, 'travel/static'),],  # Django Admin-ի համար
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -135,13 +155,20 @@ USE_I18N = True
 USE_TZ = True
 SITE_ID = 1
 
+
+
 # Static Files Settings (✅ Collect static files correctly)
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # ✅ Collects static files here
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'  # ✅ WhiteNoise Storage
-
+FONT_PATH = os.path.join(BASE_DIR, 'static', 'font', 'NotoSansArmenian-Regular.ttf')
 # Media Files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+

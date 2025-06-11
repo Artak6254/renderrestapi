@@ -1,0 +1,74 @@
+<h4>✍️ Ուղևորների տվյալներ</h4>
+<div class="card mt-4">
+  <div class="card-header bg-primary text-white">
+    <h5 class="mb-0">🧍 Ուղևորի տվյալներ ({{ passenger_type|capfirst }})</h5>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- Անուն և Ազգանուն -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="first_name" class="form-label">Անուն</label>
+          <input type="text" class="form-control" name="first_name" id="first_name" required>
+        </div>
+        <div class="col-md-6">
+          <label for="last_name" class="form-label">Ազգանուն</label>
+          <input type="text" class="form-control" name="last_name" id="last_name" required>
+        </div>
+      </div>
+
+      <!-- Ծննդյան տարեթիվ և Սեռ -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="birth_date" class="form-label">Ծննդյան տարեթիվ</label>
+          <input type="date" class="form-control" name="birth_date" id="birth_date" required>
+        </div>
+        <div class="col-md-6">
+          <label for="gender" class="form-label">Սեռ</label>
+          <select class="form-select" name="gender" id="gender" required>
+            <option value="">Ընտրել...</option>
+            <option value="male">Արական</option>
+            <option value="female">Իգական</option>
+            <option value="other">Այլ</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Քաղաքացիություն -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="citizenship" class="form-label">Քաղաքացիություն</label>
+          <input type="text" class="form-control" name="citizenship" id="citizenship" required>
+        </div>
+
+        <!-- Անձնագրի համար -->
+        {% if passenger_type == "child" %}
+        <div class="col-md-6">
+          <label for="passport_number" class="form-label">Անձնագրի սերիա</label>
+          <input type="text" class="form-control" name="passport_number" id="passport_number" required>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Էլ․ փոստ և Հեռախոս (միայն adult) -->
+      {% if passenger_type == "adult" %}
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="email" class="form-label">Էլ․ փոստ</label>
+          <input type="email" class="form-control" name="email" id="email" required>
+        </div>
+        <div class="col-md-6">
+          <label for="phone" class="form-label">Հեռախոսահամար</label>
+          <input type="tel" class="form-control" name="phone" id="phone" required>
+        </div>
+      </div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-success">✅ Հաստատել ուղևորի տվյալները</button>
+    </form>
+  </div>
+</div>
+
+

@@ -1,0 +1,71 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% static 'js/admin_booking_search.js' %}"></script>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+{% endblock %}
+
+{% block content %}
+  {{ block.super }}
+
+  <div class="container mt-4">
+    <form id="flightSearchForm" method="post" action={% url 'search_flights' %} class="form-row align-items-end">
+      {% csrf_token %}
+      <div class="form-group col-md-2">
+        <label for="from_to">From</label>
+        <select id="from_to" name="from_here" class="form-control">
+          <option value="">Select</option>
+        </select>
+      </div>
+      
+      <div class="form-group col-md-2">
+        <label for="to_there">To</label>
+        <select id="to_there"  name="to_there" class="form-control">
+          <option value="">Select</option>
+        </select>
+      </div>
+
+      <div class="form-group col-md-2">
+        <label for="start_date">Start Date</label>
+        <input type="date" id="start_date" class="form-control" name="departure_date">
+      </div>
+
+      <div class="form-group col-md-2">
+        <label for="end_date">End Date</label>
+        <input type="date" id="end_date" class="form-control" name="return_date">
+      </div>
+
+      <div class="form-group col-md-1">
+        <label for="adults">Adults</label>
+        <input type="number" name="adult_count" id="adults" class="form-control" min="1" value="1">
+      </div>
+
+      <div class="form-group col-md-1">
+        <label for="children">Children</label>
+        <input type="number" name="child_count" id="children" class="form-control" min="0" value="0">
+      </div>
+
+      <div class="form-group col-md-1">
+        <label for="babies">Babies</label>
+        <input type="number" name="baby_count" id="baby_count" class="form-control" min="0" value="0">
+      </div>
+      <div class="form-group col-md-1">
+        <button type="submit"  class="btn btn-primary btn-block">Search</button>
+      </div>
+
+    </form>
+
+    <hr>
+
+    <div id="results">
+      {% comment %} {% include "admin/travel/bookingtickets/search_flight_results.html" with flights=initial_flights %} {% endcomment %}
+    </div>
+    <form id="passengerForm">
+      <div id="passengerFormContainer"></div>
+    </form>
+  </div>
+{% endblock %}
+
+

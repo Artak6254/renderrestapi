@@ -4,7 +4,7 @@ password Qwerty2025
 
 
 
-
+contrib/admin/template/base.html 
 
 # class FlightsAdmin(admin.ModelAdmin):
 #     list_display = ('from_here', 'to_there', 'departure_date', 'available_departure_seats', 'available_return_seats')

@@ -1,7 +1,9 @@
 import logging
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
+from .auth import CsrfExemptSessionAuthentication 
 from django.db.models import Q, F
+from rest_framework.decorators import action
 from django.http import JsonResponse
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -15,31 +17,53 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 import qrcode
 from django.db import transaction
+from datetime import timedelta
+from django.db import transaction
 from django.core.mail import EmailMessage
+from django.utils import timezone
+from email.utils import formataddr
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django_ratelimit.decorators import ratelimit
 from django.http import JsonResponse
 from rest_framework import viewsets, permissions
 from django.contrib.sessions.models import Session
+from django.shortcuts import render, get_object_or_404
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from reportlab.pdfgen import canvas
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
-from .utils import generate_flight_ticket_pdf
+from django.core.mail import EmailMessage
 from io import BytesIO
+from .utils import send_ticket_email
+
+
 from datetime import datetime
 from travel.permissions import IsAdminOrOwner
 from .models import (
     Logo, Navbars, HomepageBookingSearch, HomePageIntro, LanguageList,
     HomePageWhyChooseUs, HomePageFaq, Footer, Flights, FlightSeats, Passengers, 
-    Tickets, PassangersCount, FlightDirection)
+    Tickets, PassangersCount, FlightDirection, AirTransContact,InfoForTransferContact,
+    ImportantInfo,TopHeadingAirTrans,TopHeadingBaggage,BaggageRowBox,
+    TopHeadingCertificate,CertificateDescr,CertificatesImages,TopHeadingContact,
+    ContactImages,ContactInfo,SeatChoiceDescription,
+    TopHeadingSeatChoice,SeatChoicePrice,ListAirContact,TicketPrice,
+    BookingResultsPageLabel ,BookingNavigation, OrderSummary, BookingClientInfoPageLabel,
+    BookingPaymentPageLabel
+    )
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
     HomePageIntroSerializer, HomePageWhyChooseUsSerializer, LanguageListSerializer,
     HomePageFaqSerializer, FooterSerializer, FlightsSerializer, FlightSeatsSerializer,
     TicketsSerializer, PassengersSerializer,FlightSearchSerializer, PassangersCountSerializer,
-    FlightDirectionSerializer
+    FlightDirectionSerializer,AirTransContactSerializer,InfoForTransferContactSerializer, 
+    ImportantInfoSerializer,TopHeadingAirTransSerializer,TopHeadingBaggageSerializer,
+    BaggageBoxSerializer,TopHeadingCertificateSerializer,
+    CertificateDescrSerializer,CertificatesImagesSerializer,TopHeadingContactSerializer,
+    ContactImagesSerializer,ContactInfoSerializer,SeatChoiceDescriptionSerializer,
+    TopHeadingSeatChoiceSerializer,SeatChoicePriceSerializer,ListAirContactSerializer, BookingResultsPageLabelSerializer,
+    BookingNavigationSerializer, OrderSummarySerializer, BookingClientInfoPageLabelSerializer,
+     BookingClientInfoPageLabelSerializer,BookingPaymentPageLabelSerializer
 )
 
 
@@ -52,6 +76,7 @@ def get_csrf_token(request):
     response.set_cookie('csrftoken', get_token(request))
     return response
 # ✅ Base class for filtering by language and user ownership
+
 
 
 
@@ -183,9 +208,6 @@ class FooterViewSet(LangFilteredViewSet):
 
 
 
-
-
-
 class SearchAvailableFlightsView(APIView):
     permission_classes = [AllowAny]
 
@@ -221,7 +243,7 @@ class SearchAvailableFlightsView(APIView):
         baby_count = int(request.data.get("baby_count", 0))
         total_passenger_count = adult_count + child_count + baby_count
         seat_needed_count = adult_count + child_count  
-
+        
         def collect_flights(from_h, to_h, date, seat_type):
             results = []
             flights = Flights.objects.filter(
@@ -256,7 +278,6 @@ class SearchAvailableFlightsView(APIView):
                 remaining_babies = baby_count
                 tickets_data = []
 
-              
                 for i, ticket in enumerate(selected_tickets):
                     seat = available_seats[i] if i < seat_needed_count else None
 
@@ -271,16 +292,21 @@ class SearchAvailableFlightsView(APIView):
                         passenger_type = "baby"
                         remaining_babies -= 1
 
+                    if passenger_type == "adult":
+                        price = 20000
+                    elif passenger_type == "child":
+                        price = 10000
+                    else:  # baby
+                        price = 5000
+
                     serialized_ticket = TicketsSerializer(ticket).data
-                    # if seat:
-                    #     serialized_ticket["seat"] = seat.seat_number
                     serialized_ticket["passenger_type"] = passenger_type
+                    serialized_ticket["price"] = price
                     tickets_data.append(serialized_ticket)
 
                 flight_data = FlightsSerializer(flight).data
                 flight_data["tickets"] = tickets_data
 
-                # Միայն ուղևորների քանակով նստատեղեր
                 flight_data["flight_seats"] = [
                     {
                         "id": seat.id,
@@ -301,6 +327,8 @@ class SearchAvailableFlightsView(APIView):
                 results.append(flight_data)
 
             return results
+
+
 
         departure_flights = collect_flights(from_here, to_there, departure_date, seat_type="departure")
         return_flights = collect_flights(to_there, from_here, return_date, seat_type="return") if return_date else []
@@ -330,9 +358,8 @@ class SearchAvailableFlightsView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
         
         
-        
-        
-        
+    
+       
         
 class PassngersViewSet(viewsets.ModelViewSet):
     serializer_class = PassengersSerializer
@@ -340,47 +367,139 @@ class PassngersViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Passengers.objects.filter(
-            Q(departure_seat__isnull=False) | Q(return_seat__isnull=False)
+            Q(departure_seat_id__isnull=False) | Q(return_seat_id__isnull=False)
         ).distinct()
 
     def perform_create(self, serializer):
         passenger = serializer.save()
 
-        # Գեներացնել PDF
-        pdf_file = generate_flight_ticket_pdf(passenger)
+        # Թարմացնում ենք նստատեղերը որպես զբաղված
+        if passenger.departure_seat_id:
+            seat = passenger.departure_seat_id
+            seat.is_taken = True
+            seat.save()
 
-        # Կցել PDF-ը ուղարկվող նամակին
-        if pdf_file:
-            email = EmailMessage(
-                subject="Ձեր ավիատոմսը",
-                body="Խնդրում ենք կցվածում գտնել Ձեր տոմսը:",
-                from_email="noreply@yourdomain.com",
-                to=[passenger.email],
-            )
-            email.attach("ticket.pdf", pdf_file, "application/pdf")
-            email.send()
+        if passenger.return_seat_id:
+            seat = passenger.return_seat_id
+            seat.is_taken = True
+            seat.save()
 
+        ticket = passenger.ticket_id
+        passengers = ticket.passengers.all()
 
+        # Ստուգում ենք՝ արդյոք բոլոր ուղևորները ունեն զբաղված տեղեր
+        all_seats_taken = all(
+            (p.departure_seat_id and p.departure_seat_id.is_taken) and
+            (not p.return_seat_id or p.return_seat_id.is_taken)
+            for p in passengers
+        )
+
+        if all_seats_taken:
+            ticket.is_sold = True
+            ticket.save()
+        
+            # Ուղարկել PDF տոմսերը email-ով
+            for p in passengers:
+                send_ticket_email(p)
+        # archive_sold_ticket_data(ticket.id)
 
 
 class FlightSeatsViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     serializer_class = FlightSeatsSerializer
-    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+
+    # Անջատում ենք pagination–ը
+    pagination_class = None
 
     def get_queryset(self):
-        seat_type = self.request.query_params.get('seat_type', None)
-        qs = FlightSeats.objects.filter(is_taken=False)
+        queryset = FlightSeats.objects.all()
 
-        if seat_type in ['departure', 'return']:
-            qs = qs.filter(seat_type=seat_type)
-
-        return qs
+        # Ֆիլտր only flight_id, եթե կա
+        flight_id = self.request.query_params.get('flight_id')
+        if flight_id:
+            queryset = queryset.filter(flight_id=flight_id)
     
+        # Ֆիլտր ըստ is_taken, եթե պետք է
+        is_taken = self.request.query_params.get('is_taken')
+        if is_taken is not None:
+            if is_taken.lower() == 'true':
+                queryset = queryset.filter(is_taken=True)
+            elif is_taken.lower() == 'false':
+                queryset = queryset.filter(is_taken=False)
+
+        # Սորտավորում՝ նախ departure (A/B), ապա return (C)
+        return queryset.order_by('seat_type', 'seat_number')
+    
+    @action(detail=True, methods=['post'])
+    def set_taken(self, request, pk=None):
+        try:
+            seat = FlightSeats.objects.get(pk=pk)
+            seat.is_taken = True
+            seat.save()
+            return Response({'success': True, 'message': 'Նստատեղը նշվել է որպես վերցված։'})
+        except FlightSeats.DoesNotExist:
+            return Response({'error': 'Նստատեղը չի գտնվել։'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'])
+    def hold(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                seat = FlightSeats.objects.select_for_update().get(pk=pk)
+                if seat.is_taken:
+                    return Response({"error": "Նստատեղը արդեն վաճառված է։", "ok": False}, status=status.HTTP_400_BAD_REQUEST)
+                if seat.hold_until and seat.hold_until > timezone.now():
+                    r_ret_am = seat.seat_type
+                    r_ret_ru = seat.seat_type
+
+                    if r_ret_am == "return":
+                        r_ret_am = "վերադարձի"
+                        r_ret_ru = "обратного"
+                    elif r_ret_am == "departure":
+                        r_ret_am = "մեկնման"
+                        r_ret_ru = "отправления"
+
+                    return Response({
+                        "en": f"Seat {seat.seat_number} ({seat.seat_type}) is already reserved.",
+                        "ru": f"Место {seat.seat_number} ({r_ret_ru} рейса) уже забронировано.",
+                        "am": f"{seat.seat_number} {r_ret_am} նստատեղը արդեն պահված է։"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+                seat.hold_until = timezone.now() + timedelta(minutes=35)
+                seat.hold_by = request.data.get('user_id', 'anonymous')
+                seat.save()
+
+                return Response({"success": f"Նստատեղը պահվել է մինչև {seat.hold_until}։ ", "ok": True})
+        except FlightSeats.DoesNotExist:
+            return Response({"error": "Նստատեղը չի գտնվել։"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'])
+    def book(self, request, pk=None):
+        try:
+            with transaction.atomic():
+                seat = FlightSeats.objects.select_for_update().get(pk=pk)
+                if seat.is_taken:
+                    return Response({"error": "Նստատեղը արդեն վաճառված է։"}, status=status.HTTP_400_BAD_REQUEST)
+                if seat.hold_until and seat.hold_until < timezone.now():
+                    return Response({"error": "Նստատեղի պահելու ժամկետը անցել է։"}, status=status.HTTP_400_BAD_REQUEST)
+                if seat.hold_by and seat.hold_by != request.data.get('user_id', 'anonymous'):
+                    return Response({"error": "Դուք չեք պահել այս նստատեղը։"}, status=status.HTTP_403_FORBIDDEN)
+
+                seat.is_taken = True
+                seat.hold_until = None
+                seat.hold_by = None
+                seat.save()
+
+                return Response({"success": "Պատվերը հաջողությամբ կատարվեց։"})
+        except FlightSeats.DoesNotExist:
+            return Response({"error": "Նստատեղը գոյություն չունի։"}, status=status.HTTP_404_NOT_FOUND)
+
+
 
 class FlightsViewSet(viewsets.ModelViewSet):
     serializer_class = FlightsSerializer
-
+    
     def get_queryset(self):
         return Flights.objects.filter(is_active=True).filter(
             id__in=[f.id for f in Flights.objects.all() if f.has_available_seats()]
@@ -392,16 +511,41 @@ class FlightsViewSet(viewsets.ModelViewSet):
 class TicketsViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     serializer_class = TicketsSerializer
+    
+    @action(detail=True, methods=['post'])
+    def set_total_price(self, request, pk=None):
+        try:
+            ticket = Tickets.objects.get(pk=pk)
+            total_price = request.data.get('total_price')
 
+            if total_price is None:
+                return Response({'error': 'Պետք է փոխանցել total_price։'}, status=status.HTTP_400_BAD_REQUEST)
+
+            ticket.total_price = total_price
+            ticket.save()
+
+            return Response({'success': True, 'message': f'Total price-ը հաջողությամբ մուտքագրվեց', 'ticket_id': ticket.id})
+        except Tickets.DoesNotExist:
+            return Response({'error': 'Տոմսը չի գտնվել։'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'])
+    def set_sold(self, request, pk=None):
+        try:
+            ticket = Tickets.objects.get(pk=pk)
+            ticket.is_sold = True
+            ticket.save()
+            return Response({'success': True, 'message': f'Տոմսը վաճառված է։{ticket.id}'})
+        except Tickets.DoesNotExist:
+            return Response({'error': 'Տոմսը չի գտնվել։'}, status=status.HTTP_404_NOT_FOUND)
+    
     def get_queryset(self):
         if self.action == 'list':
             return Tickets.objects.exclude(
-                Q(passengers__departure_seat__is_taken=True) |
-                Q(passengers__return_seat__is_taken=True)
+                Q(passengers__departure_seat_id__is_taken=True) |
+                Q(passengers__return_seat_id__is_taken=True)
             ).distinct()
         return Tickets.objects.all()
 
-        
         
 
 
@@ -414,6 +558,279 @@ class PassangersCountViewSet(viewsets.ModelViewSet):
     
 
 class FlightDirectionViewSet(viewsets.ModelViewSet):
-    queryset = FlightDirection.objects.all()
-    serializer_class = FlightDirectionSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]    
+      permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+      @action(detail=False, methods=['get'], url_path='grouped')
+      def grouped(self, request):
+                flights = Flights.objects.all()
+
+                from_here_data = []
+                to_there_data = []
+
+                seen_from = set()
+                seen_to = set()
+
+                for flight in flights:
+                    if flight.from_here not in seen_from:
+                        seen_from.add(flight.from_here)
+                        from_here_data.append({
+                            "id": flight.id,
+                            "from_here": flight.from_here,
+                            "flight_airport_name": flight.flight_airport_name,
+                            "flight_airport_short_name": flight.flight_airport_short_name,
+                        })
+
+                    if flight.to_there not in seen_to:
+                        seen_to.add(flight.to_there)
+                        to_there_data.append({
+                            "id": flight.id,
+                            "to_there": flight.to_there,
+                            "arrival_airport_name": flight.arrival_airport_name,
+                            "arrival_airport_short_name": flight.arrival_airport_short_name,
+                        })
+
+                return Response({
+                    "from_here": from_here_data,
+                    "to_there": to_there_data
+                })
+                
+
+# def archive_sold_ticket_data(ticket_id):
+#     with transaction.atomic():
+#         ticket = Tickets.objects.select_related('flight_id').prefetch_related('passengers').get(id=ticket_id)
+
+#         if not ticket.is_sold:
+#             return
+
+#         flight = ticket.flight_id
+#         passengers = ticket.passengers.all()
+
+#         # Պատրաստում ենք ուղևորների տվյալները JSON-ով
+#         passengers_data = []
+#         for p in passengers:
+#             departure_seat_price = p.departure_seat_id.departure_price if p.departure_seat_id else 0
+#             return_seat_price = p.return_seat_id.return_price if p.return_seat_id else 0
+
+#             total_price = 0
+#             if p.departure_baggage_weight:
+#                 total_price += int(p.departure_baggage_weight)
+#             if p.return_baggage_weight:
+#                 total_price += int(p.return_baggage_weight)
+#             total_price += departure_seat_price + return_seat_price
+
+#             passengers_data.append({
+#                 'full_name': p.full_name,
+#                 'email': p.email,
+#                 'passport_serial': p.passport_serial,
+
+#                 'seat_departure': p.departure_seat_id.seat_number if p.departure_seat_id else '',
+#                 'seat_departure_price': departure_seat_price,
+
+#                 'seat_return': p.return_seat_id.seat_number if p.return_seat_id else '',
+#                 'seat_return_price': return_seat_price,
+
+#                 'departure_baggage': p.departure_baggage_weight or 0,
+#                 'return_baggage': p.return_baggage_weight or 0,
+
+#                 'title': p.title,
+#                 'individual_total_price': total_price,
+#             })
+
+#         # Ուղևորների քանակ
+#         total_passengers = passengers.count()
+
+#         # Ստեղծում ենք արխիվի տվյալների dictionary
+#         # archive_data = {
+#         #     "flight_from": flight.from_here,
+#         #     "flight_to": flight.to_there,
+#         #     "flight_date": flight.departure_date,
+#         #     "departure_time": flight.departure_time,
+#         #     "arrival_time": flight.arrival_time,
+#         #     "bort_number": flight.bort_number,
+#         #     "total_passengers": total_passengers,
+#         #     "total_price": ticket.total_price,
+#         #     "passengers_data": passengers_data,
+
+#         #     "ticket_number": ticket.ticket_number,
+#         #     "ticket_type": ticket.ticket_type,
+#         #     "ticket_created_at": ticket.created_at,
+#         #     "ticket_updated_at": ticket.updated_at,
+#         #     "ticket_is_sold": ticket.is_sold,
+#         # }
+
+#         # ✅ Միայն այն դաշտերը, որոնց ուղևորները կան՝ ավելացվում են
+#         if passengers.filter(passenger_type='adult').exists():
+#             archive_data["adult_price"] = ticket.adult_price
+#         if passengers.filter(passenger_type='child').exists():
+#             archive_data["child_price"] = ticket.child_price
+#         if passengers.filter(passenger_type='baby').exists():
+#             archive_data["baby_price"] = ticket.baby_price
+
+#         # Ստեղծում ենք արխիվային մուտք
+#         # SoldFlightArchive.objects.create(**archive_data)
+
+#         # Ջնջում ենք ուղևորները, նստատեղերը և տոմսը
+#         for p in passengers:
+#             if p.departure_seat_id:
+#                 p.departure_seat_id.delete()
+#             if p.return_seat_id:
+#                 p.return_seat_id.delete()
+#             p.delete()
+
+#         ticket.delete()
+
+# # static
+class AirTransContactView(LangFilteredViewSet):
+    queryset = AirTransContact.objects.all()
+    serializer_class = AirTransContactSerializer   
+
+
+
+class ListTransContactView(LangFilteredViewSet):
+    queryset = ListAirContact.objects.all()
+    serializer_class = ListAirContactSerializer       
+    
+    
+    
+
+class InfoForTransferView(LangFilteredViewSet):
+    queryset = InfoForTransferContact.objects.all()
+    serializer_class = InfoForTransferContactSerializer
+                      
+                
+                
+
+
+
+class ImportantInfoView(LangFilteredViewSet):
+        queryset = ImportantInfo.objects.all()
+        serializer_class = ImportantInfoSerializer
+                
+    
+    
+class TopHeadingAirTransView(LangFilteredViewSet):
+        queryset = TopHeadingAirTrans.objects.all()
+        serializer_class = TopHeadingAirTransSerializer
+     
+    
+    
+class TopHeadingBaggageView(LangFilteredViewSet):
+        queryset = TopHeadingBaggage.objects.all()
+        serializer_class = TopHeadingBaggageSerializer
+        
+    
+    
+class BaggageBoxView(LangFilteredViewSet):
+        queryset = BaggageRowBox.objects.all()
+        serializer_class = BaggageBoxSerializer
+          
+    
+
+
+     
+
+
+class TopHeadingCertificateView(LangFilteredViewSet):
+        queryset = TopHeadingCertificate.objects.all()
+        serializer_class = TopHeadingCertificateSerializer
+      
+
+
+
+
+class CertificateDescrView(LangFilteredViewSet):
+        queryset = CertificateDescr.objects.all()
+        serializer_class = CertificateDescrSerializer
+        
+    
+    
+  
+class CertificatesImagesView(LangFilteredViewSet):
+        queryset = CertificatesImages.objects.all()
+        serializer_class = CertificatesImagesSerializer
+
+    
+
+
+
+class TopHeadingContactView(LangFilteredViewSet):
+        queryset = TopHeadingContact.objects.all()
+        serializer_class = TopHeadingContactSerializer
+      
+    
+    
+
+class ContactImagesView(LangFilteredViewSet):
+        queryset = ContactImages.objects.all()
+        serializer_class = ContactImagesSerializer
+ 
+ 
+    
+
+class ContactInfoView(LangFilteredViewSet):
+        queryset = ContactInfo.objects.all()
+        serializer_class = ContactInfoSerializer
+  
+
+
+
+class SeatChoiceDescriptionView(LangFilteredViewSet):
+    queryset = SeatChoiceDescription.objects.all()
+    serializer_class = SeatChoiceDescriptionSerializer
+            
+    
+    
+class TopHeadingSeatChoiceView(LangFilteredViewSet):
+    queryset = TopHeadingSeatChoice.objects.all()
+    serializer_class = TopHeadingSeatChoiceSerializer
+                     
+    
+    
+
+class SeatChoicePriceViews(LangFilteredViewSet):
+        queryset = SeatChoicePrice.objects.all()
+        serializer_class = SeatChoicePriceSerializer
+              
+    
+    
+    
+
+
+        
+
+
+
+
+ 
+
+class  BookingResultsPageLabelView(LangFilteredViewSet):
+    queryset =  BookingResultsPageLabel.objects.all()
+    serializer_class =  BookingResultsPageLabelSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+
+class  BookingNavigationView(LangFilteredViewSet):
+    queryset =  BookingNavigation.objects.all()
+    serializer_class =  BookingNavigationSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+    
+class  OrderSummaryView(LangFilteredViewSet):
+    queryset =  OrderSummary.objects.all()
+    serializer_class =  OrderSummarySerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+
+class  BookingClientInfoPageLabelView(LangFilteredViewSet):
+    queryset =  BookingClientInfoPageLabel.objects.all()
+    serializer_class =  BookingClientInfoPageLabelSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+            
+        
+
+        
+class BookingPaymentPageLabelView(LangFilteredViewSet):
+    queryset =  BookingPaymentPageLabel.objects.all()
+    serializer_class =  BookingPaymentPageLabelSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+            

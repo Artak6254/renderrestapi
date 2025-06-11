@@ -1,0 +1,86 @@
+{% load custom_tags %}
+<div class="row">
+  <!-- Գնալու թռիչքներ -->
+  <div class="col-md-6">
+    {% if departure_flights %}
+      <h4>✈️ Գնալու թռիչքներ</h4>
+      <div class="row">
+        {% for flight in departure_flights %}
+          <div class="col-12 mb-3">
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <h5 class="card-title">✈️ {{ flight.from_here }} → {{ flight.to_there }}</h5>
+                <p class="card-text">
+                  🕒 Գնալու օր՝ {{ flight.departure_date }}<br>
+                  👥 Ազատ նստատեղեր ({{ flight.available_departure_seats }}): 
+                  {% for seat in flight.flight_seats %}
+                    {{ seat.seat_number }}{% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                </p>
+                <ul class="list-group">
+                  {% for ticket_group in flight.tickets_grouped %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      🎫 {{ ticket_group.passenger_type|capfirst }} {{ ticket_group.count }}x{{ ticket_group.unit_price }}
+                      <span>{{ ticket_group.total_price }} ֏</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-warning">Ոչ մի համապատասխան գնալու թռիչք չի գտնվել։</div>
+    {% endif %}
+  </div>
+
+  <!-- Վերադարձի թռիչքներ -->
+  <div class="col-md-6">
+    {% if return_flights %}
+      <h4>🔁 Վերադարձի թռիչքներ</h4>
+      <div class="row">
+        {% for flight in return_flights %}
+          <div class="col-12 mb-3">
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <h5 class="card-title">✈️ {{ flight.from_here }} → {{ flight.to_there }}</h5>
+                <p class="card-text">
+                  🕒 Վերադարձի օր՝ {{ flight.departure_date }}<br>
+                  👥 Ազատ նստատեղեր ({{ flight.available_return_seats }}): 
+                  {% for seat in flight.flight_seats %}
+                    {{ seat.seat_number }}{% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                </p>
+                <ul class="list-group">
+                  {% for ticket_group in flight.tickets_grouped %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      🎫 {{ ticket_group.passenger_type|capfirst }} {{ ticket_group.count }}x{{ ticket_group.unit_price }}
+                      <span>{{ ticket_group.total_price }} ֏</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-warning">Ոչ մի համապատասխան վերադարձի թռիչք չի գտնվել։</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="list-group mb-5">
+  {% for passenger_type in passenger_types %}
+    {% include "admin/travel/bookingtickets/passenger_details_form.html" with passenger_type=passenger_type %}
+  {% endfor %}
+</div>
+
+
+<div class="list-group mb-5">
+  {% for passenger_type in passenger_types %}
+  {% include "admin/travel/bookingtickets/flight_seats.html" with flight_id=flight.id passenger_type=passenger_type %}
+  {% endfor %}
+</div>

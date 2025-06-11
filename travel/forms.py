@@ -40,3 +40,16 @@ class PassengersAdminForm(forms.ModelForm):
             )
 
         return passport_serial
+
+
+class BookingTicketsSearchForm(forms.Form):
+    from_here = forms.CharField(label="Սկզբնակետ", required=True)
+    to_there = forms.CharField(label="Վերջնակետ", required=True)
+    departure_date_start = forms.DateField(label="Մեկնելու ամսաթիվ (սկիզբ)", required=True)
+    departure_date_end = forms.DateField(label="Մեկնելու ամսաթիվ (վերջ)", required=True)
+    return_date_start = forms.DateField(label="Վերադարձի ամսաթիվ (սկիզբ)", required=False)
+    return_date_end = forms.DateField(label="Վերադարձի ամսաթիվ (վերջ)", required=False)
+    is_round_trip = forms.BooleanField(label="Երկկողմանի է", required=False)
+    adult_count = forms.IntegerField(label="Մեծահասակներ", min_value=0, initial=1)
+    child_count = forms.IntegerField(label="Երեխաներ", min_value=0, initial=0)
+    baby_count = forms.IntegerField(label="Մանկահասակներ", min_value=0, initial=0)
