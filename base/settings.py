@@ -70,7 +70,7 @@ INSTALLED_APPS = [
     'rangefilter',
     'django_ratelimit',
     'corsheaders',  # CORS
-    'travel',
+    'travel.apps.TravelConfig',
 ]
 
 MIDDLEWARE = [

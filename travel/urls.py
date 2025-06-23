@@ -13,7 +13,9 @@ from .views import (
     ContactImagesView,ContactInfoView,
     SeatChoiceDescriptionView,TopHeadingSeatChoiceView,SeatChoicePriceViews,ListTransContactView,   BookingResultsPageLabelView ,BookingNavigationView,
     OrderSummaryView, BookingClientInfoPageLabelView, BookingClientInfoPageLabelView,
-    BookingPaymentPageLabelView
+    BookingPaymentPageLabelView,SoldFlightArchiveAPIView,AboutUsTopHeadingViewSet,
+    AboutUsDescrViewSet,ContactIntroViewSet,TopContactViewSet,ContactNewInfoViewSet,
+    ContactMapViewSet,CancelTicketAPIView
 )
 
 router = DefaultRouter()
@@ -54,6 +56,13 @@ router.register(r'order_summary', OrderSummaryView, basename="order_summary")
 
 router.register(r'booking_client_info_page_label', BookingClientInfoPageLabelView, basename="booking_client_info_page_label")
 router.register(r'booking_payment_page_label', BookingPaymentPageLabelView, basename="booking_payment_page_labe")    
+
+router.register(r'about_us', AboutUsTopHeadingViewSet, basename="about_us")
+router.register(r'about_descr', AboutUsDescrViewSet, basename="about_descr")
+router.register(r'contact_intro', ContactIntroViewSet, basename="contact_intro")
+router.register(r'top_contact', TopContactViewSet, basename="top_contact")
+router.register(r'contact_new_info', ContactNewInfoViewSet, basename="contact_new_info")
+router.register(r'contact_map', ContactMapViewSet, basename="contact_map")    
     
     
     
@@ -63,6 +72,8 @@ router.register(r'booking_payment_page_label', BookingPaymentPageLabelView, base
 urlpatterns = [
     path('api/', include(router.urls)),
     path('api/search-flights/', SearchAvailableFlightsView.as_view(), name="search_flights"),  # ✅ Ահա այստեղ ճիշտ գրանցված է
+    path("api/sold_archive/", SoldFlightArchiveAPIView.as_view(), name="sold_archive"),
+     path("api/cancel_ticket/", CancelTicketAPIView.as_view(), name="cancel_ticket"),
     path('api-auth/', include('rest_framework.urls')),
     path('login/', my_login_view, name="login"),
     path('logout/', my_logout_view, name="logout"),

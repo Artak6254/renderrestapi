@@ -218,6 +218,28 @@ class FooterSocial(models.Model):
 #------- booking ----------
 
 # models.py
+                      
+class SoldFlightArchive(models.Model):
+    archived_at = models.DateTimeField(auto_now_add=True)
+    
+    flight_from = models.CharField(max_length=120)
+    flight_to = models.CharField(max_length=120)
+    flight_departure_date = models.DateField(null=True, blank=True)
+    flight_return_date = models.DateField(null=True, blank=True)
+    departure_time = models.CharField(max_length=20)
+    arrival_time = models.CharField(max_length=20)
+    
+    total_passengers = models.IntegerField()
+    total_price = models.CharField(max_length=30, null=True, blank=True)
+
+    passengers_data = models.JSONField()  # Ուղևորների տվյալներ
+    ticket_data = models.JSONField(null=True, blank=True)  # Վաճառված տոմսերի ամբողջական տվյալներ
+    seats = models.JSONField(null=True, blank=True)        # Նստատեղերի տվյալներ
+
+    def __str__(self):
+        return f"{self.flight_from} → {self.flight_to} | {self.flight_departure_date}"
+
+   
 
 class Flights(models.Model): 
     is_active = models.BooleanField(default=True)
@@ -243,7 +265,6 @@ class Flights(models.Model):
 
     def available_return_seats(self):
         return self.flight_seats.filter(seat_type='return', is_taken=False).count()
-
 
 
 
@@ -280,9 +301,50 @@ class Tickets(models.Model):
         return f"Ticket #{self.ticket_number} | Flight: {self.flight_id}"
 
     
+class Passengers(models.Model):
+    ticket_id = models.ForeignKey("Tickets", on_delete=models.CASCADE, related_name="passengers")
+    passenger_type = models.CharField(max_length=10, choices=[
+        ('adult', 'Adult'),
+        ('child', 'Child'),
+        ('baby', 'Baby'),
+    ], default="adult")
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    email = models.CharField(max_length=60, blank=True, null=True)
+    title = models.CharField(max_length=10)
+    full_name = models.CharField(max_length=100)
+    date_of_birth = models.CharField(max_length=100, null=True)
+    citizenship = models.CharField(max_length=30)
+    price = models.IntegerField(default=0)
+    passport_serial = models.CharField(max_length=60)
+    passport_validity_period = models.CharField(max_length=60, blank=True, null=True)
+    departure_baggage_weight = models.CharField(max_length=20, blank=True, null=True, default="10")
+    return_baggage_weight = models.CharField(max_length=20,blank=True, null=True, default="10")
+    departure_seat_id = models.ForeignKey("FlightSeats", on_delete=models.CASCADE, related_name="departure_passengers", null=True, blank=True)
+    return_seat_id = models.ForeignKey("FlightSeats", on_delete=models.CASCADE, related_name="return_passengers", null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.full_name} ({self.passenger_type})"
+
+
+class FlightSeats(models.Model):
+    SEAT_TYPE_CHOICES = [
+        ('departure', 'Departure'),
+        ('return', 'Return'),
+    ]
+
+    flight = models.ForeignKey('Flights', related_name='flight_seats', on_delete=models.CASCADE)
+    seat_number = models.CharField(max_length=10)
+    seat_type = models.CharField(max_length=10, choices=SEAT_TYPE_CHOICES)
+    is_taken = models.BooleanField(default=False)
+    hold_until = models.DateTimeField(null=True, blank=True)
+    hold_by = models.CharField(max_length=100, null=True, blank=True)
+    departure_price = models.PositiveIntegerField(default=0)
+    return_price = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.flight} | {self.seat_type.upper()} Seat {self.seat_number}"
     
     
-# models.py
 class BookingTickets(models.Model):
     is_round_trip = models.BooleanField(default=False)
     from_here = models.CharField(max_length=100)
@@ -308,27 +370,6 @@ class PassengersPrice(models.Model):
     def __str__(self):
         return f"adult {self.adult_price} child {self.child_price} baby{self.baby_price}"
     
-
-class FlightSeats(models.Model):
-    SEAT_TYPE_CHOICES = [
-        ('departure', 'Departure'),
-        ('return', 'Return'),
-    ]
-
-    flight = models.ForeignKey('Flights', related_name='flight_seats', on_delete=models.CASCADE)
-    seat_number = models.CharField(max_length=10)
-    seat_type = models.CharField(max_length=10, choices=SEAT_TYPE_CHOICES)
-    is_taken = models.BooleanField(default=False)
-    hold_until = models.DateTimeField(null=True, blank=True)
-    hold_by = models.CharField(max_length=100, null=True, blank=True)
-    departure_price = models.PositiveIntegerField(default=0)
-    return_price = models.PositiveIntegerField(default=0)
-
-    def __str__(self):
-        return f"{self.flight} | {self.seat_type.upper()} Seat {self.seat_number}"
-
-
-
 
 
 class FlightSchedule(models.Model):
@@ -398,33 +439,7 @@ class FlightSchedule(models.Model):
     def __str__(self):
         return f"{self.from_here} {self.to_there}"        
             
-            
-            
-# class SoldFlightArchive(models.Model):
-#     archived_at = models.DateTimeField(auto_now_add=True)
-#     flight_from = models.CharField(max_length=120)
-#     flight_to = models.CharField(max_length=120)
-#     flight_date = models.DateField()
-#     departure_time = models.CharField(max_length=20)
-#     arrival_time = models.CharField(max_length=20)
-#     bort_number = models.CharField(max_length=50)
-#     total_passengers = models.IntegerField()
-#     total_price = models.CharField(max_length=30, null=True, blank=True)
-#     passengers_data = models.JSONField()  
-#     # Վաճառված տոմսի տվյալներ (ոչ JSON)
-#     ticket_number = models.CharField(max_length=100, default="0000000")
-#     adult_price = models.CharField(max_length=50, blank=True, null=True)
-#     child_price = models.CharField(max_length=50, blank=True, null=True)
-#     baby_price = models.CharField(max_length=50, blank=True, null=True)
-#     ticket_type = models.CharField(max_length=50,null=True, blank=True)
-#     ticket_created_at = models.DateTimeField(null=True, blank=True)
-#     ticket_updated_at = models.DateTimeField(null=True, blank=True)
-#     ticket_is_sold = models.BooleanField(default=True)
-   
-#     def __str__(self):
-#         return f"{self.flight_from} → {self.flight_to} | {self.flight_date}"
-
-            
+         
 
 class PassangersCount(models.Model):
     flight_id = models.ForeignKey(Flights, on_delete=models.CASCADE, related_name="passangers_count")
@@ -436,8 +451,6 @@ class PassangersCount(models.Model):
         return f"Adult #{self.adult_count} | Child: {self.child_count} | Baby: {self.baby_count}"
 
  
- 
- 
 class FlightDirection(models.Model):
     from_there = models.CharField(max_length=100)    
     to_there = models.CharField(max_length=100)
@@ -447,34 +460,6 @@ class FlightDirection(models.Model):
     def __str__(self):
         return f"{self.from_there} {self.to_there} {self.flight_airport_name} {self.flight_airport_short_name}"
     
-
-
-
-class Passengers(models.Model):
-    ticket_id = models.ForeignKey("Tickets", on_delete=models.CASCADE, related_name="passengers")
-    passenger_type = models.CharField(max_length=10, choices=[
-        ('adult', 'Adult'),
-        ('child', 'Child'),
-        ('baby', 'Baby'),
-    ], default="adult")
-    phone = models.CharField(max_length=50, blank=True, null=True)
-    email = models.CharField(max_length=60, blank=True, null=True)
-    title = models.CharField(max_length=10)
-    full_name = models.CharField(max_length=100)
-    date_of_birth = models.CharField(max_length=100, null=True)
-    citizenship = models.CharField(max_length=30)
-    price = models.IntegerField(default=0)
-    passport_serial = models.CharField(max_length=60)
-    passport_validity_period = models.CharField(max_length=60, blank=True, null=True)
-    departure_baggage_weight = models.CharField(max_length=20, blank=True, null=True, default="10")
-    return_baggage_weight = models.CharField(max_length=20,blank=True, null=True, default="10")
-    departure_seat_id = models.ForeignKey("FlightSeats", on_delete=models.CASCADE, related_name="departure_passengers", null=True, blank=True)
-    return_seat_id = models.ForeignKey("FlightSeats", on_delete=models.CASCADE, related_name="return_passengers", null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.full_name} ({self.passenger_type})"
-
-
 
 
 class TicketPrice(models.Model):
@@ -488,16 +473,10 @@ class TicketPrice(models.Model):
 
 
     # static
-    
-class AirTransPage(models.Model):
-    class Meta:
-        verbose_name = "Air Transportation Page"
-        verbose_name_plural = "Air Transportation Page"
 
-    def __str__(self):
-        return "Air Transportation Page"    
-    
-    
+
+
+
 
 class BaggagesPage(models.Model):
     class Meta:
@@ -557,7 +536,6 @@ class TransportConditionalPage(models.Model):
     
     
 class AirTransContact(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air1',null=True, blank=True)
     lang = models.CharField(max_length=20)
     heading = models.CharField(max_length=60)   
     text = models.CharField(max_length=255)
@@ -569,14 +547,12 @@ class AirTransContact(models.Model):
     
 
 class ListAirContact(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air2',null=True, blank=True)
     list = models.ForeignKey(AirTransContact, on_delete=models.CASCADE, related_name="list", null=True, blank=True)
     text = models.CharField(max_length=120)    
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="list_air", null=True)
    
     
 class InfoForTransferContact(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air3',null=True, blank=True)
     lang = models.CharField(max_length=20)
     heading = models.CharField(max_length=60)   
     text = models.CharField(max_length=255)
@@ -587,14 +563,12 @@ class InfoForTransferContact(models.Model):
         
 
 class ListTransferInfo(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air4',null=True, blank=True)
     list = models.ForeignKey(InfoForTransferContact, on_delete=models.CASCADE, related_name="list", null=True, blank=True)
     text = models.CharField(max_length=120)    
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_list_info", null=True)
     
 
 class ImportantInfo(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air5',null=True, blank=True)
     lang = models.CharField(max_length=20)
     heading = models.CharField(max_length=60)   
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="inportant_heading", null=True)
@@ -604,7 +578,6 @@ class ImportantInfo(models.Model):
     
 
 class ListImportantInfo(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air6', null=True, blank=True)
     list = models.ForeignKey(ImportantInfo, on_delete=models.CASCADE, related_name="list", null=True, blank=True)
     text = models.CharField(max_length=120)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="list_important", null=True)
@@ -612,7 +585,6 @@ class ListImportantInfo(models.Model):
     
     
 class TopHeadingAirTrans(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air7',null=True, blank=True)
     lang = models.CharField(max_length=20)
     subheading = models.CharField(max_length=60)   
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="air_heading", null=True)
@@ -622,7 +594,6 @@ class TopHeadingAirTrans(models.Model):
     
 
 class SectionHeadingAirTrans(models.Model):
-    page = models.ForeignKey('AirTransPage', on_delete=models.CASCADE, related_name='air9', null=True, blank=True)
     section = models.ForeignKey(TopHeadingAirTrans, on_delete=models.CASCADE, related_name="section", null=True, blank=True)
     text = models.CharField(max_length=120)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="section", null=True)
@@ -927,3 +898,70 @@ class BookingPaymentPageLabel(models.Model):
     
     def __str__(self):
        return f"{self.title} {self.credit_card_text}"
+   
+   
+   
+   
+   
+   
+#    nor
+
+class AboutUsTopHeading(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="top", null=True)
+    lang = models.CharField(max_length=15)
+    section = models.CharField(max_length=60)
+    page = models.CharField(max_length=60)   
+    
+    def __str__(self):
+       return f"{self.section} {self.page}"
+   
+   
+class AboutUsDescr(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="aboutus_descriptions", null=True)
+    lang = models.CharField(max_length=15)
+    title = models.CharField(max_length=60)
+    descr = models.TextField()
+    
+    def __str__(self):
+       return f"{self.title} {self.descr}"
+   
+   
+class ContactIntro(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="intro", null=True)
+    lang = models.CharField(max_length=15)
+    title = models.CharField(max_length=60)
+    img_url = models.CharField(max_length=120)
+    
+    def __str__(self):
+        return f"{self.title} {self.lang}"
+    
+    
+
+class TopContact(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="topContact", null=True)
+    lang = models.CharField(max_length=15)
+    section = models.CharField(max_length=60)
+    page = models.CharField(max_length=120)
+    
+    def __str__(self):
+        return f"{self.lang} {self.page}"
+        
+    
+       
+class ContactNewInfo(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="new_info", null=True)
+    lang = models.CharField(max_length=15)
+    title = models.CharField(max_length=60)
+    descr = models.TextField()
+    img_url = models.CharField(max_length=120)
+    
+    def __str__(self):
+        return f"{self.title} {self.lang}"
+    
+    
+class ContactMap(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="map", null=True)
+    url = models.URLField()
+    
+    def __str__(self):
+        return f"{self.title} {self.lang}"    

@@ -49,7 +49,8 @@ from .models import (
     ContactImages,ContactInfo,SeatChoiceDescription,
     TopHeadingSeatChoice,SeatChoicePrice,ListAirContact,TicketPrice,
     BookingResultsPageLabel ,BookingNavigation, OrderSummary, BookingClientInfoPageLabel,
-    BookingPaymentPageLabel
+    BookingPaymentPageLabel,SoldFlightArchive,AboutUsTopHeading,AboutUsDescr,ContactIntro,
+    TopContact,ContactNewInfo,ContactMap
     )
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
@@ -63,7 +64,8 @@ from .serializers import (
     ContactImagesSerializer,ContactInfoSerializer,SeatChoiceDescriptionSerializer,
     TopHeadingSeatChoiceSerializer,SeatChoicePriceSerializer,ListAirContactSerializer, BookingResultsPageLabelSerializer,
     BookingNavigationSerializer, OrderSummarySerializer, BookingClientInfoPageLabelSerializer,
-     BookingClientInfoPageLabelSerializer,BookingPaymentPageLabelSerializer
+     BookingClientInfoPageLabelSerializer,BookingPaymentPageLabelSerializer,SoldFlightArchiveSerializer,ContactNewInfoSerializer,
+     AboutUsTopHeadingSerializer,AboutUsDescrSerializer,ContactIntroSerializer,TopContactSerializer,ContactMapSerializer
 )
 
 
@@ -222,7 +224,6 @@ class SearchAvailableFlightsView(APIView):
                 "error": "Provide at least one of departure_date or return_date, along with from_here and to_there"
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Parse dates
         try:
             departure_date = datetime.strptime(departure_date, "%Y-%m-%d").date()
         except ValueError:
@@ -243,7 +244,7 @@ class SearchAvailableFlightsView(APIView):
         baby_count = int(request.data.get("baby_count", 0))
         total_passenger_count = adult_count + child_count + baby_count
         seat_needed_count = adult_count + child_count  
-        
+
         def collect_flights(from_h, to_h, date, seat_type):
             results = []
             flights = Flights.objects.filter(
@@ -296,7 +297,7 @@ class SearchAvailableFlightsView(APIView):
                         price = 20000
                     elif passenger_type == "child":
                         price = 10000
-                    else:  # baby
+                    else:
                         price = 5000
 
                     serialized_ticket = TicketsSerializer(ticket).data
@@ -328,10 +329,17 @@ class SearchAvailableFlightsView(APIView):
 
             return results
 
-
-
+        # Ահա ամբողջությամբ լուծման առանցքը
         departure_flights = collect_flights(from_here, to_there, departure_date, seat_type="departure")
-        return_flights = collect_flights(to_there, from_here, return_date, seat_type="return") if return_date else []
+        if not departure_flights:
+            # Եթե departure seat_type-ով չի գտնում, փորձենք reverse seat_type="return"
+            departure_flights = collect_flights(from_here, to_there, departure_date, seat_type="return")
+
+        return_flights = []
+        if return_date:
+            return_flights = collect_flights(to_there, from_here, return_date, seat_type="return")
+            if not return_flights:
+                return_flights = collect_flights(to_there, from_here, return_date, seat_type="departure")
 
         if not departure_flights:
             return Response({
@@ -356,11 +364,41 @@ class SearchAvailableFlightsView(APIView):
             response_data["return_flights"] = return_flights
 
         return Response(response_data, status=status.HTTP_200_OK)
-        
-        
-    
-       
-        
+
+
+class CancelTicketAPIView(APIView):
+    def post(self, request):
+        ticket_id = request.data.get("ticket_id")
+        if not ticket_id:
+            return Response({"error": "Ticket ID պետք է տրամադրել։"}, status=400)
+
+        try:
+            ticket = Tickets.objects.get(id=ticket_id)
+
+            # Ուղևորների ազատում
+            for passenger in ticket.passengers.all():
+                if passenger.departure_seat_id:
+                    departure_seat = passenger.departure_seat_id
+                    departure_seat.is_taken = False
+                    departure_seat.flight = None  # ջնջում ենք flight_id-ը
+                    departure_seat.save()
+
+                if passenger.return_seat_id:
+                    return_seat = passenger.return_seat_id
+                    return_seat.is_taken = False
+                    return_seat.flight = None  # ջնջում ենք flight_id-ը
+                    return_seat.save()
+
+                passenger.delete()
+
+            ticket.is_sold = False
+            ticket.save()
+            return Response({"message": "Տոմսը չեղարկվեց։"}, status=200)
+
+        except Tickets.DoesNotExist:
+            return Response({"error": "Տոմսը գոյություն չունի։"}, status=404)
+
+
 class PassngersViewSet(viewsets.ModelViewSet):
     serializer_class = PassengersSerializer
     permission_classes = [AllowAny]
@@ -375,19 +413,16 @@ class PassngersViewSet(viewsets.ModelViewSet):
 
         # Թարմացնում ենք նստատեղերը որպես զբաղված
         if passenger.departure_seat_id:
-            seat = passenger.departure_seat_id
-            seat.is_taken = True
-            seat.save()
+            passenger.departure_seat_id.is_taken = True
+            passenger.departure_seat_id.save()
 
         if passenger.return_seat_id:
-            seat = passenger.return_seat_id
-            seat.is_taken = True
-            seat.save()
+            passenger.return_seat_id.is_taken = True
+            passenger.return_seat_id.save()
 
         ticket = passenger.ticket_id
         passengers = ticket.passengers.all()
 
-        # Ստուգում ենք՝ արդյոք բոլոր ուղևորները ունեն զբաղված տեղեր
         all_seats_taken = all(
             (p.departure_seat_id and p.departure_seat_id.is_taken) and
             (not p.return_seat_id or p.return_seat_id.is_taken)
@@ -397,11 +432,10 @@ class PassngersViewSet(viewsets.ModelViewSet):
         if all_seats_taken:
             ticket.is_sold = True
             ticket.save()
-        
-            # Ուղարկել PDF տոմսերը email-ով
+
             for p in passengers:
                 send_ticket_email(p)
-        # archive_sold_ticket_data(ticket.id)
+
 
 
 class FlightSeatsViewSet(viewsets.ModelViewSet):
@@ -555,7 +589,23 @@ class PassangersCountViewSet(viewsets.ModelViewSet):
     queryset = PassangersCount.objects.all()
     serializer_class = PassangersCountSerializer
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
-    
+
+
+
+# views.py
+
+class SoldFlightArchiveAPIView(APIView):
+    def post(self, request):
+        logger.info(f"Received data: {request.data}")
+        serializer = SoldFlightArchiveSerializer(data=request.data)
+        if serializer.is_valid():
+            archive_instance = serializer.save()
+            logger.info(f"Archive saved: {archive_instance}")
+            return Response({"message": "Տվյալները հաջողությամբ արխիվացվեցին։"}, status=status.HTTP_201_CREATED)
+        else:
+            logger.error(f"Serializer errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class FlightDirectionViewSet(viewsets.ModelViewSet):
       permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
@@ -595,89 +645,7 @@ class FlightDirectionViewSet(viewsets.ModelViewSet):
                 })
                 
 
-# def archive_sold_ticket_data(ticket_id):
-#     with transaction.atomic():
-#         ticket = Tickets.objects.select_related('flight_id').prefetch_related('passengers').get(id=ticket_id)
 
-#         if not ticket.is_sold:
-#             return
-
-#         flight = ticket.flight_id
-#         passengers = ticket.passengers.all()
-
-#         # Պատրաստում ենք ուղևորների տվյալները JSON-ով
-#         passengers_data = []
-#         for p in passengers:
-#             departure_seat_price = p.departure_seat_id.departure_price if p.departure_seat_id else 0
-#             return_seat_price = p.return_seat_id.return_price if p.return_seat_id else 0
-
-#             total_price = 0
-#             if p.departure_baggage_weight:
-#                 total_price += int(p.departure_baggage_weight)
-#             if p.return_baggage_weight:
-#                 total_price += int(p.return_baggage_weight)
-#             total_price += departure_seat_price + return_seat_price
-
-#             passengers_data.append({
-#                 'full_name': p.full_name,
-#                 'email': p.email,
-#                 'passport_serial': p.passport_serial,
-
-#                 'seat_departure': p.departure_seat_id.seat_number if p.departure_seat_id else '',
-#                 'seat_departure_price': departure_seat_price,
-
-#                 'seat_return': p.return_seat_id.seat_number if p.return_seat_id else '',
-#                 'seat_return_price': return_seat_price,
-
-#                 'departure_baggage': p.departure_baggage_weight or 0,
-#                 'return_baggage': p.return_baggage_weight or 0,
-
-#                 'title': p.title,
-#                 'individual_total_price': total_price,
-#             })
-
-#         # Ուղևորների քանակ
-#         total_passengers = passengers.count()
-
-#         # Ստեղծում ենք արխիվի տվյալների dictionary
-#         # archive_data = {
-#         #     "flight_from": flight.from_here,
-#         #     "flight_to": flight.to_there,
-#         #     "flight_date": flight.departure_date,
-#         #     "departure_time": flight.departure_time,
-#         #     "arrival_time": flight.arrival_time,
-#         #     "bort_number": flight.bort_number,
-#         #     "total_passengers": total_passengers,
-#         #     "total_price": ticket.total_price,
-#         #     "passengers_data": passengers_data,
-
-#         #     "ticket_number": ticket.ticket_number,
-#         #     "ticket_type": ticket.ticket_type,
-#         #     "ticket_created_at": ticket.created_at,
-#         #     "ticket_updated_at": ticket.updated_at,
-#         #     "ticket_is_sold": ticket.is_sold,
-#         # }
-
-#         # ✅ Միայն այն դաշտերը, որոնց ուղևորները կան՝ ավելացվում են
-#         if passengers.filter(passenger_type='adult').exists():
-#             archive_data["adult_price"] = ticket.adult_price
-#         if passengers.filter(passenger_type='child').exists():
-#             archive_data["child_price"] = ticket.child_price
-#         if passengers.filter(passenger_type='baby').exists():
-#             archive_data["baby_price"] = ticket.baby_price
-
-#         # Ստեղծում ենք արխիվային մուտք
-#         # SoldFlightArchive.objects.create(**archive_data)
-
-#         # Ջնջում ենք ուղևորները, նստատեղերը և տոմսը
-#         for p in passengers:
-#             if p.departure_seat_id:
-#                 p.departure_seat_id.delete()
-#             if p.return_seat_id:
-#                 p.return_seat_id.delete()
-#             p.delete()
-
-#         ticket.delete()
 
 # # static
 class AirTransContactView(LangFilteredViewSet):
@@ -806,25 +774,25 @@ class SeatChoicePriceViews(LangFilteredViewSet):
 class  BookingResultsPageLabelView(LangFilteredViewSet):
     queryset =  BookingResultsPageLabel.objects.all()
     serializer_class =  BookingResultsPageLabelSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
 
 class  BookingNavigationView(LangFilteredViewSet):
     queryset =  BookingNavigation.objects.all()
     serializer_class =  BookingNavigationSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
     
 class  OrderSummaryView(LangFilteredViewSet):
     queryset =  OrderSummary.objects.all()
     serializer_class =  OrderSummarySerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
 
 class  BookingClientInfoPageLabelView(LangFilteredViewSet):
     queryset =  BookingClientInfoPageLabel.objects.all()
     serializer_class =  BookingClientInfoPageLabelSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
             
         
 
@@ -832,5 +800,42 @@ class  BookingClientInfoPageLabelView(LangFilteredViewSet):
 class BookingPaymentPageLabelView(LangFilteredViewSet):
     queryset =  BookingPaymentPageLabel.objects.all()
     serializer_class =  BookingPaymentPageLabelSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
-            
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+  
+  
+  
+class AboutUsTopHeadingViewSet(LangFilteredViewSet):
+    queryset = AboutUsTopHeading.objects.all()
+    serializer_class = AboutUsTopHeadingSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+    
+
+class AboutUsDescrViewSet(LangFilteredViewSet):
+    queryset = AboutUsDescr.objects.all()
+    serializer_class = AboutUsDescrSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+ 
+class ContactIntroViewSet(LangFilteredViewSet):
+    queryset = ContactIntro.objects.all()
+    serializer_class = ContactIntroSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+
+class TopContactViewSet(LangFilteredViewSet):
+    queryset = TopContact.objects.all()
+    serializer_class = TopContactSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+                                                                
+
+class ContactNewInfoViewSet(LangFilteredViewSet):
+    queryset = ContactNewInfo.objects.all()
+    serializer_class = ContactNewInfoSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+
+class ContactMapViewSet(LangFilteredViewSet):
+    queryset = ContactMap.objects.all()
+    serializer_class = ContactMapSerializer
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+                                                                                                            

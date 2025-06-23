@@ -186,9 +186,8 @@
             <ul>
                 <li class="rezerv">Booking</li>
                 <li class="contact">Basic contact information</li>
-                <li class="name">Name: </li>
-                <li class="surname">Surname: </li>
-                <li class="phone">Phone: </li>
+                <li class="name">Full Name: {{ name }}</li>
+                <li class="phone">Phone: {{phone}}</li>
             </ul>
         </div>
         
@@ -204,14 +203,13 @@
                         <th>Flight seats</th>
                         <th>Ticket</th>
                     </tr>
-                   
                 </thead>
                 <tbody>
                    <tr>
-                    <td>{{name}}</td>
-                    <td>AB0052565</td>
-                    <td>{{departure_seat}}-{{return_seat}}</td>
-                    <td>{{ticket_id}}</td>
+                    <td>{{ name }}</td>
+                    <td>{{ passport_serial }}</td>
+                    <td>{{ departure_seat }}-{{ return_seat }}</td>
+                    <td>{{ ticket_number }}</td>
                    </tr>
                 </tbody>
             </table>
@@ -232,15 +230,14 @@
                         <th>Airplane</th>
                         <th>Status</th>
                     </tr>
-                   
                 </thead>
                 <tbody>
                    <tr>
                     <td>1</td>
-                    <td>2025-02-26</td>
-                    <td>NG1001</td>
-                    <td>11:00 Erevan-Zvartnoc <br/> Airport</td>
-                    <td>11:45-Kapan Syunik Airport</td>
+                    <td>{{ flight_departure_date }}</td>
+                    <td>{{ bort_number }}</td>
+                    <td>{{ departure_time }} {{ flight_from }}</td>
+                    <td>{{ arrival_time }} {{ flight_to }}</td>
                     <td>LET 410</td>
                     <td>CONFIRMED</td>
                    </tr>
@@ -253,9 +250,9 @@
                 <h2>Passengers Count</h2>
             </div>
             <ul class="people_count">
-                <li>Adult: </li>
-                <li>Child: </li>
-                <li>Baby: </li>
+                <li>Adult: {{ adult_count }}</li>
+                <li>Child: {{ child_count }}</li>
+                <li>Baby: {{ baby_count }}</li>
             </ul>
             <p>All charges and payments appear in: AMD</p>
         </div>
@@ -274,25 +271,24 @@
                         <th>VAT</th>
                         <th>Total</th>
                     </tr>
-                   
                 </thead>
                 <tbody>
                    <tr>
                     <td>1</td>
-                    <td>Vardan</td>
+                    <td>{{ name }}</td>
                     <td>YITGOW-Economy</td>
-                    <td>AMD 16666.98</td>
-                    <td>AMD 33333.33</td>
-                    <td>AMD 200000.00</td>
+                    <td>AMD {{ ticket_price }}</td>
+                    <td>AMD 0.00</td>
+                    <td>AMD {{ total_price }}</td>
                    </tr>
                 </tbody>
             </table>
             <div class="total_price">
                 <p>
                    <span class="total"> Total</span>
-                <span>AMD 16666.98</span>
-                <span class="vat">AMD 33333.33</span>
-                <span>AMD200000.00</span>
+                <span>AMD {{ ticket_price }}</span>
+                <span class="vat">AMD 0.00</span>
+                <span>AMD {{ total_price }}</span>
             </p>
             </div>
         </div>
@@ -315,8 +311,8 @@
                    <tr>
                     <td>CASH</td>
                     <td></td>
-                    <td>Vardan</td>
-                    <td>AMD 20000.00 <span>2025-02-25</span></span></td>
+                    <td>{{ fullname }}</td>
+                    <td>AMD {{ total_price }} <span>{{ flight_departure_date }}</span></td>
                     <td>Payment</td>
                    </tr>
                 </tbody>
@@ -381,4 +377,5 @@
        
     </section>
 </body>
+
 </html>

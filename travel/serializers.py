@@ -15,7 +15,8 @@ from .models import (
     ContactImages,ContactInfo, Contact,SeatChoiceDescription,
     TopHeadingSeatChoice,SeatChoicePrice,Social,SupportText,
     BookingResultsPageLabel ,BookingNavigation, OrderSummary, BookingClientInfoPageLabel,
-    BookingPaymentPageLabel
+    BookingPaymentPageLabel,SoldFlightArchive,AboutUsTopHeading,AboutUsDescr,ContactIntro,
+    TopContact,ContactNewInfo,ContactMap
 )
 
 class LanguageListSerializer(serializers.ModelSerializer):
@@ -45,7 +46,29 @@ class NavbarsSerializer(serializers.ModelSerializer):
         return navbar
 
 
+class SoldFlightArchiveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SoldFlightArchive
+        fields = '__all__'
+        
+    def create(self, validated_data):
+        passengers = validated_data.pop("passengers_data", [])
+        enriched_passengers = []
 
+        default_ticket_number = validated_data.get("ticket_number")
+        default_ticket_type = validated_data.get("ticket_type")
+        ticket_is_sold = validated_data.get("ticket_is_sold", True)
+
+        for p in passengers:
+            p.setdefault("ticket_number", default_ticket_number)
+            p.setdefault("ticket_type", default_ticket_type)
+            p.setdefault("ticket_is_sold", ticket_is_sold)
+            enriched_passengers.append(p)
+
+        validated_data["passengers_data"] = enriched_passengers
+        return super().create(validated_data)
+        
+        
 class LogoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Logo
@@ -216,17 +239,18 @@ class FlightSeatsSerializer(serializers.ModelSerializer):
 
 
 
-
 class PassengersSerializer(serializers.ModelSerializer):
     ticket_id = serializers.PrimaryKeyRelatedField(queryset=Tickets.objects.all())
-
+    departure_seat_id = serializers.PrimaryKeyRelatedField(queryset=FlightSeats.objects.all(), required=False, allow_null=True)
+    return_seat_id = serializers.PrimaryKeyRelatedField(queryset=FlightSeats.objects.all(), required=False, allow_null=True)
+    passport_serial = serializers.CharField(required=False, allow_null=True)
+    passport_validity_period = serializers.CharField(required=False, allow_null=True)
     departure_baggage_weight = serializers.CharField(required=False, allow_null=True)
     return_baggage_weight = serializers.CharField(required=False, allow_null=True)
 
-    
     class Meta:
         model = Passengers
-        fields ='__all__'
+        fields = '__all__'
         
     # def validate(self, data):
     #     passport_serial = data.get('passport_serial')
@@ -582,4 +606,36 @@ class BookingPaymentPageLabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingPaymentPageLabel
         fields = '__all__'        
+                                 
+                                 
+             
+class AboutUsTopHeadingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AboutUsTopHeading
+        fields = '__all__'
+        
+class AboutUsDescrSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AboutUsDescr
+        fields = '__all__'        
+        
+class ContactIntroSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactIntro
+        fields = '__all__'    
+        
+class TopContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TopContact
+        fields = '__all__'    
+        
+class ContactNewInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactNewInfo
+        fields = '__all__'   
+
+class ContactMapSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMap
+        fields = '__all__'                                                        
                                                                                                 

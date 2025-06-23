@@ -32,7 +32,8 @@ from .models import (
     TopHeadingPath,Contact,Social,SupportText,ListTransferInfo,ListImportantInfo,FlightSchedule,
     
     BookingResultsPageLabel ,BookingNavigation, OrderSummary, BookingClientInfoPageLabel,
-    BookingPaymentPageLabel,
+    BookingPaymentPageLabel,SoldFlightArchive,AboutUsTopHeading,AboutUsDescr,ContactIntro,
+    TopContact,ContactNewInfo,ContactMap
 )
 
 
@@ -57,194 +58,198 @@ class BookTicketsAdmin(admin.ModelAdmin):
 
 
 
+@admin.register(SoldFlightArchive)
+class SoldFlightArchiveAdmin(admin.ModelAdmin):
+    actions = ['export_sold_archive_with_passengers']
 
-# @admin.register(SoldFlightArchive)
-# class SoldFlightArchiveAdmin(admin.ModelAdmin):
-#     actions = ['export_sold_archive_with_passengers']
-    
-#     list_display = (
-#         'flight_from', 'flight_to', 'flight_date', 'departure_time',
-#         'arrival_time', 'bort_number', 'total_price',
-#         'adult_count', 'child_count', 'baby_count', 'passenger_count',
-#     )
-    
-#     readonly_fields = (
-#         'flight_from', 'flight_to', 'flight_date', 'departure_time',
-#         'arrival_time', 'bort_number', 'total_price',
-#         'ticket_number', 'ticket_type', 'ticket_created_at',
-#         'ticket_updated_at', 'ticket_is_sold',
-#         'adult_count', 'child_count', 'baby_count', 'passenger_count',
-#         'display_passenger_table','adult_price', 'child_price', 'baby_price',
-#     )
+    list_display = (
+        'flight_from', 'flight_to', 'flight_departure_date', 'flight_return_date',
+        'departure_time', 'arrival_time', 'total_price', 'total_passengers',
+    )
 
-#     exclude = ('passengers_data',)
+    readonly_fields = (
+        'flight_from', 'flight_to', 'flight_departure_date', 'flight_return_date',
+        'departure_time', 'arrival_time', 'total_price',
+        'total_passengers', 'display_passenger_table',
+        'display_ticket_table', 'display_seat_table',
+        'display_cancel_buttons',
+    )
 
-#     fieldsets = (
-#         ('✈️ Flight Info', {
-#             'fields': (
-#                 'flight_from', 'flight_to', 'flight_date',
-#                 'departure_time', 'arrival_time', 'bort_number',
-#             )
-#         }),
-#         ('🎫 Ticket Info', {
-#             'fields': (
-#                 'ticket_number', 'ticket_type',
-#                 'ticket_created_at', 'ticket_updated_at',
-#                 'ticket_is_sold', 'total_price',
-#             )
-#         }),
-#         ('💵 Ticket Prices', {
-#             'fields': (
-#                 'adult_price', 'child_price', 'baby_price',
-#             )
-#         }),
-#          ('👥 Passenger Info', {
-#             'fields': (
-#                 'adult_count', 'child_count', 'baby_count',
-#                 'passenger_count', 'display_passenger_table',
-#             )
-#         }),
-#     )
+    exclude = ('passengers_data', 'ticket_data', 'seats')
 
-#     @admin.action(description="📤 Export All Passenger Data as CSV")
-#     def export_sold_archive_with_passengers(self, request, queryset):
-#         response = HttpResponse(content_type='text/csv')
-#         response['Content-Disposition'] = 'attachment; filename="sold_flight_archive.csv"'
-#         response.write('\ufeff')  # UTF-8 BOM for Excel
+    fieldsets = (
+        ('✈️ Flight Info', {
+            'fields': (
+                'flight_from', 'flight_to',
+                'flight_departure_date', 'flight_return_date',
+                'departure_time', 'arrival_time',
+            )
+        }),
+        ('💵 Pricing Info', {
+            'fields': (
+                'total_price', 'total_passengers',
+            )
+        }),
+        ('🎫 Ticket Info', {
+            'fields': (
+                'display_ticket_table',
+            )
+        }),
+        ('💺 Seat Info', {
+            'fields': (
+                'display_seat_table',
+            )
+        }),
+        ('👥 Passenger Info', {
+            'fields': (
+                'display_passenger_table',
+            )
+        }),
+        ('❌ Չեղարկման Գործողություն', {
+            'fields': (
+                'display_cancel_buttons',
+            )
+        }),
+    )
 
-#         writer = csv.writer(response, delimiter=';')
-#         headers = [
-#             'Flight From', 'Flight To', 'Flight Date', 'Departure Time',
-#             'Arrival Time', 'Bort Number', 'Total Price',
-#             'Adult Count', 'Child Count', 'Baby Count', 'Total Passengers',
-#             'Ticket Number', 'Ticket Type', 'Created At', 'Updated At', 'Is Sold',
-#             'Passenger Full Name', 'Email', 'Passport', 'Seat (Dep)', 'Seat (Ret)',
-#             'Baggage (Dep)', 'Baggage (Ret)', 'Individual Price', 'Gender'
-#         ]
-#         writer.writerow(headers)
+    @admin.action(description="📤 Export All Passenger Data as CSV")
+    def export_sold_archive_with_passengers(self, request, queryset):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="sold_flight_archive.csv"'
+        response.write('\ufeff')  # Excel BOM
 
-#         for archive in queryset:
-#             passengers = archive.passengers_data or []
-#             for p in passengers:
-#                 writer.writerow([
-#                     archive.flight_from,
-#                     archive.flight_to,
-#                     archive.flight_date.strftime('%Y-%m-%d') if archive.flight_date else '',
-#                     archive.departure_time.strftime('%H:%M') if archive.departure_time else '',
-#                     archive.arrival_time.strftime('%H:%M') if archive.arrival_time else '',
-#                     archive.bort_number,
-#                     archive.total_price,
-#                     archive.adult_count,
-#                     archive.child_count,
-#                     archive.baby_count,
-#                     archive.passenger_count,
-#                     archive.ticket_number,
-#                     archive.ticket_type,
-#                     archive.ticket_created_at.strftime('%Y-%m-%d %H:%M') if archive.ticket_created_at else '',
-#                     archive.ticket_updated_at.strftime('%Y-%m-%d %H:%M') if archive.ticket_updated_at else '',
-#                     archive.ticket_is_sold,
-#                     p.get('full_name', ''),
-#                     p.get('email', ''),
-#                     p.get('passport_serial', ''),
-#                     p.get('seat_departure', ''),
-#                     p.get('seat_return', ''),
-#                     p.get('departure_baggage', ''),
-#                     p.get('return_baggage', ''),
-#                     p.get('individual_total_price', ''),
-#                     p.get('title', ''),
-#                 ])
-#         return response
+        writer = csv.writer(response, delimiter=';')
+        headers = [
+            'Flight From', 'Flight To', 'Departure Date', 'Return Date',
+            'Departure Time', 'Arrival Time', 'Total Price',
+            'Ticket Number', 'Ticket Type', 'Ticket Is Sold',
+            'Passenger Full Name', 'Passport Serial', 'Title',
+            'Date of Birth', 'Citizenship', 'Phone', 'Email', 'Price', 'Passenger Type'
+        ]
+        writer.writerow(headers)
 
-#     def adult_count(self, obj):
-#         return sum(1 for p in obj.passengers_data if str(p.get('title', '')).strip().lower() in ['adult', 'մեծահասակ'])
-#     adult_count.short_description = "Adults"
+        for archive in queryset:
+            passengers = archive.passengers_data or []
+            for p in passengers:
+                writer.writerow([
+                    archive.flight_from,
+                    archive.flight_to,
+                    archive.flight_departure_date.strftime('%Y-%m-%d') if archive.flight_departure_date else '',
+                    archive.flight_return_date.strftime('%Y-%m-%d') if archive.flight_return_date else '',
+                    archive.departure_time,
+                    archive.arrival_time,
+                    archive.total_price,
+                    p.get('ticket_number', ''),
+                    p.get('ticket_type', ''),
+                    p.get('ticket_is_sold', ''),
+                    p.get('full_name', ''),
+                    p.get('passport_serial', ''),
+                    p.get('title', ''),
+                    p.get('date_of_birth', ''),
+                    p.get('citizenship', ''),
+                    p.get('phone', ''),
+                    p.get('email', ''),
+                    p.get('price', ''),
+                    p.get('passenger_type', ''),
+                ])
+        return response
 
-#     def child_count(self, obj):
-#         return sum(1 for p in obj.passengers_data if str(p.get('title', '')).strip().lower() in ['child', 'երեխա'])
-#     child_count.short_description = "Children"
+    def display_passenger_table(self, obj):
+        rows = ""
+        for p in obj.passengers_data or []:
+            rows += f"""
+                <tr>
+                    <td>{p.get("full_name", "")}</td>
+                    <td>{p.get("passport_serial", "")}</td>
+                    <td>{p.get("title", "")}</td>
+                    <td>{p.get("date_of_birth", "")}</td>
+                    <td>{p.get("citizenship", "")}</td>
+                    <td>{p.get("phone", "")}</td>
+                    <td>{p.get("email", "")}</td>
+                    <td>{p.get("ticket_number", "")}</td>
+                    <td>{p.get("ticket_type", "")}</td>
+                    <td>{p.get("passenger_type", "")}</td>
+                    <td>{p.get("price", "")}</td>
+                </tr>
+            """
+        return mark_safe(f"""
+        <table style="width:100%; border-collapse: collapse;" border="1">
+            <tr>
+                <th>Full Name</th><th>Passport</th><th>Title</th><th>Date of Birth</th>
+                <th>Citizenship</th><th>Phone</th><th>Email</th><th>Ticket No.</th>
+                <th>Type</th><th>Category</th><th>Price</th>
+            </tr>{rows}
+        </table>
+        """)
 
-#     def baby_count(self, obj):
-#         return sum(1 for p in obj.passengers_data if str(p.get('title', '')).strip().lower() in ['baby', 'մանուկ'])
-#     baby_count.short_description = "Babies"
+    def display_ticket_table(self, obj):
+        rows = ""
+        for t in obj.ticket_data or []:
+            rows += f"""
+                <tr>
+                    <td>{t.get("ticket_id", "")}</td>
+                    <td>{t.get("ticket_number", "")}</td>
+                    <td>{t.get("ticket_type", "")}</td>
+                    <td>{t.get("price", "")}</td>
+                    <td>{t.get("ticket_is_sold", "")}</td>
+                </tr>
+            """
+        return mark_safe(f"""
+        <table style="width:100%; border-collapse: collapse;" border="1">
+            <tr>
+                <th>Ticket ID</th><th>Number</th><th>Type</th><th>Price</th><th>Sold</th>
+            </tr>{rows}
+        </table>
+        """)
 
-#     def passenger_count(self, obj):
-#         return len(obj.passengers_data)
-#     passenger_count.short_description = "Total Passengers"
+    def display_seat_table(self, obj):
+        rows = ""
+        for s in obj.seats or []:
+            rows += f"""
+                <tr>
+                    <td>{s.get("seat_id", "")}</td>
+                    <td>{s.get("seat_number", "")}</td>
+                    <td>{s.get("seat_type", "")}</td>
+                    <td>{s.get("is_taken", "")}</td>
+                    <td>{s.get("flight_id", "")}</td>
+                </tr>
+            """
+        return mark_safe(f"""
+            <table style="width:100%; border-collapse: collapse;" border="1">
+                <tr>
+                    <th>Seat ID</th><th>Number</th><th>Type</th><th>Is Taken</th><th>Flight ID</th>
+                </tr>{rows}
+            </table>
+        """)
 
-#     def display_passenger_table(self, obj):
-#         rows = ""
-#         total_all_price = 0
+    def display_cancel_buttons(self, obj):
+        if not obj.ticket_data:
+            return "-"
 
-#         for p in obj.passengers_data:
-#             individual_total = p.get("individual_total_price", 0) or 0
-#             try:
-#                 individual_total = int(individual_total)
-#             except (ValueError, TypeError):
-#                 individual_total = 0
-#             total_all_price += individual_total
-#             rows += f"""
-#                 <tr>
-#                     <td>{p.get("full_name", "")}</td>
-#                     <td>{p.get("email", "")}</td>
-#                     <td>{p.get("title", "")}</td>
-#                     <td>{p.get("passport_serial", "")}</td>
-#                     <td>{p.get("seat_departure", "")} - {p.get("seat_departure_price", 0)} ֏</td>
-#                     <td>{p.get("seat_return", "")} - {p.get("seat_return_price", 0)} ֏</td>
-#                     <td>{p.get("departure_baggage", 0)} kg</td>
-#                     <td>{p.get("return_baggage", 0)} kg</td>
-#                     <td>{individual_total} ֏</td>
-#                 </tr>
-#             """
+        buttons = ""
+        for ticket in obj.ticket_data:
+            ticket_id = ticket.get("ticket_id")
+            ticket_number = ticket.get("ticket_number", "Unknown")
 
-#         rows += f"""
-#             <tr style="font-weight: bold; background-color: #e6f7ff;">
-#                 <td colspan="8" style="text-align: right;">Total All Price:</td>
-#                 <td>{total_all_price} ֏</td>
-#             </tr>
-#         """
+            if ticket_id:
+                buttons += f"""
+                <form method="post" action="/api/cancel_ticket/" onsubmit="return confirm('Չեղարկե՞լ տոմս {ticket_number}-ը։')" style="margin-bottom:10px;">
+                    <input type="hidden" name="ticket_id" value="{ticket_id}" />
+                    <input type="submit" value="Չեղարկել {ticket_number}" style="background-color:#dc3545; color:white; border:none; padding:6px 12px; border-radius:5px; cursor:pointer;" />
+                </form>
+                """
+        return format_html(buttons)
 
-#         html = f"""
-#         <style>
-#             table.passenger-table {{
-#                 border-collapse: collapse;
-#                 width: 100%;
-#                 margin-top: 10px;
-#             }}
-#             table.passenger-table th, table.passenger-table td {{
-#                 border: 1px solid #999;
-#                 padding: 5px 10px;
-#                 text-align: center;
-#             }}
-#             table.passenger-table th {{
-#                 background-color: #f0f0f0;
-#             }}
-#         </style>
-#         <table class="passenger-table">
-#             <tr>
-#                 <th>Full Name</th>
-#                 <th>Email</th>
-#                 <th>Gender</th>
-#                 <th>Passport</th>
-#                 <th>Seat (Dep) + Price</th>
-#                 <th>Seat (Ret) + Price</th>
-#                 <th>Baggage (Dep)</th>
-#                 <th>Baggage (Ret)</th>
-#                 <th>Total (Each)</th>
-#             </tr>
-#             {rows}
-#         </table>
-#         """
-#         return mark_safe(html)
-#     display_passenger_table.short_description = "Passenger Info"
+    display_passenger_table.short_description = "Passenger Info"
+    display_ticket_table.short_description = "Ticket Info"
+    display_seat_table.short_description = "Seat Info"
+    display_cancel_buttons.short_description = "❌ Չեղարկման Գործողություն"
 
-#     def has_add_permission(self, request):
-#         return False
+    def has_add_permission(self, request):
+        return False
 
-#     def has_change_permission(self, request, obj=None):
-#         return False
-
-
-
+    def has_change_permission(self, request, obj=None):
+        return True
 
 
 
@@ -255,9 +260,6 @@ class TicketsAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
 
-        # Եթե is_sold=True է ու տվյալն արդեն պահպանված է բազայում
-        # if obj.is_sold:
-            # archive_sold_ticket_data(obj.id)
 
 
 
@@ -312,6 +314,16 @@ admin.site.register(OrderSummary)
 admin.site.register(BookingClientInfoPageLabel)
 
 admin.site.register(BookingPaymentPageLabel)
+
+
+
+admin.site.register(AboutUsTopHeading)
+admin.site.register(AboutUsDescr)
+admin.site.register(ContactIntro)
+admin.site.register(TopContact)
+admin.site.register(ContactNewInfo)
+admin.site.register(ContactMap)
+
 
 
 
