@@ -278,8 +278,7 @@ class Tickets(models.Model):
     # ✅ Ավելացրու սա սխալը վերացնելու համար
     ticket_type = models.CharField(
         max_length=20,
-        choices=[("one-way", "One Way"), ("round-trip", "Round Trip")],
-        default="one-way"
+        choices=[("one-way", "One Way"), ("round-trip", "Round Trip")]
     )
 
     def save(self, *args, **kwargs):

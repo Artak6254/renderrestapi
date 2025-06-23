@@ -209,7 +209,6 @@ class FooterViewSet(LangFilteredViewSet):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
 
-
 class SearchAvailableFlightsView(APIView):
     permission_classes = [AllowAny]
 
@@ -243,7 +242,10 @@ class SearchAvailableFlightsView(APIView):
         child_count = int(request.data.get("child_count", 0))
         baby_count = int(request.data.get("baby_count", 0))
         total_passenger_count = adult_count + child_count + baby_count
-        seat_needed_count = adult_count + child_count  
+        seat_needed_count = adult_count + child_count
+
+        # Որոշում ենք տոմսի տեսակ
+        ticket_type = "round-trip" if return_date else "one-way"
 
         def collect_flights(from_h, to_h, date, seat_type):
             results = []
@@ -303,6 +305,8 @@ class SearchAvailableFlightsView(APIView):
                     serialized_ticket = TicketsSerializer(ticket).data
                     serialized_ticket["passenger_type"] = passenger_type
                     serialized_ticket["price"] = price
+                    serialized_ticket["ticket_type"] = ticket_type  # ✅ Ավելացրինք
+
                     tickets_data.append(serialized_ticket)
 
                 flight_data = FlightsSerializer(flight).data
@@ -329,10 +333,8 @@ class SearchAvailableFlightsView(APIView):
 
             return results
 
-        # Ահա ամբողջությամբ լուծման առանցքը
         departure_flights = collect_flights(from_here, to_there, departure_date, seat_type="departure")
         if not departure_flights:
-            # Եթե departure seat_type-ով չի գտնում, փորձենք reverse seat_type="return"
             departure_flights = collect_flights(from_here, to_there, departure_date, seat_type="return")
 
         return_flights = []
@@ -364,8 +366,9 @@ class SearchAvailableFlightsView(APIView):
             response_data["return_flights"] = return_flights
 
         return Response(response_data, status=status.HTTP_200_OK)
-
-
+    
+    
+    
 class CancelTicketAPIView(APIView):
     def post(self, request):
         ticket_id = request.data.get("ticket_id")
@@ -433,8 +436,7 @@ class PassngersViewSet(viewsets.ModelViewSet):
             ticket.is_sold = True
             ticket.save()
 
-            for p in passengers:
-                send_ticket_email(p)
+
 
 
 
@@ -593,20 +595,30 @@ class PassangersCountViewSet(viewsets.ModelViewSet):
 
 
 # views.py
-
 class SoldFlightArchiveAPIView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         logger.info(f"Received data: {request.data}")
         serializer = SoldFlightArchiveSerializer(data=request.data)
         if serializer.is_valid():
             archive_instance = serializer.save()
             logger.info(f"Archive saved: {archive_instance}")
+
+            try:
+                # Որպես dict փոխանցում ենք validated_data
+                send_ticket_email(serializer.validated_data)
+                logger.info(f"Email sent for archive {archive_instance.id}")
+            except Exception as e:
+                logger.error(f"Email sending failed for archive {archive_instance.id}: {e}")
+
             return Response({"message": "Տվյալները հաջողությամբ արխիվացվեցին։"}, status=status.HTTP_201_CREATED)
         else:
             logger.error(f"Serializer errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
+        
+        
+        
 class FlightDirectionViewSet(viewsets.ModelViewSet):
       permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
