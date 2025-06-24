@@ -73,7 +73,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/search-flights/', SearchAvailableFlightsView.as_view(), name="search_flights"),  # ✅ Ահա այստեղ ճիշտ գրանցված է
     path("api/sold_archive/", SoldFlightArchiveAPIView.as_view(), name="sold_archive"),
-     path("api/cancel_ticket/", CancelTicketAPIView.as_view(), name="cancel_ticket"),
+    path("api/cancel_ticket/", CancelTicketAPIView.as_view(), name="cancel_ticket"),
     path('api-auth/', include('rest_framework.urls')),
     path('login/', my_login_view, name="login"),
     path('logout/', my_logout_view, name="logout"),

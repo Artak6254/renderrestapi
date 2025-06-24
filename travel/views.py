@@ -1,6 +1,8 @@
 import logging
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from .auth import CsrfExemptSessionAuthentication 
 from django.db.models import Q, F
 from rest_framework.decorators import action
@@ -368,8 +370,11 @@ class SearchAvailableFlightsView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
     
     
-    
+
+@method_decorator(csrf_exempt, name='dispatch')    
 class CancelTicketAPIView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         ticket_id = request.data.get("ticket_id")
         if not ticket_id:

@@ -66,7 +66,7 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
         'flight_from', 'flight_to', 'flight_departure_date', 'flight_return_date',
         'departure_time', 'arrival_time', 'total_price', 'total_passengers',
     )
-
+ 
     readonly_fields = (
         'flight_from', 'flight_to', 'flight_departure_date', 'flight_return_date',
         'departure_time', 'arrival_time', 'total_price',
@@ -221,7 +221,7 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
                 </tr>{rows}
             </table>
         """)
-
+    
     def display_cancel_buttons(self, obj):
         if not obj.ticket_data:
             return "-"
@@ -233,23 +233,52 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
 
             if ticket_id:
                 buttons += f"""
-                <form method="post" action="/api/cancel_ticket/" onsubmit="return confirm('Չեղարկե՞լ տոմս {ticket_number}-ը։')" style="margin-bottom:10px;">
-                    <input type="hidden" name="ticket_id" value="{ticket_id}" />
-                    <input type="submit" value="Չեղարկել {ticket_number}" style="background-color:#dc3545; color:white; border:none; padding:6px 12px; border-radius:5px; cursor:pointer;" />
-                </form>
+                    <button 
+                        onclick="cancelTicket('{ticket_id}', '{ticket_number}')" 
+                        style="
+                            background-color:#dc3545; color:white; border:none; 
+                            padding:6px 12px; border-radius:5px; cursor:pointer; margin-bottom: 5px;
+                        ">
+                        Չեղարկել {ticket_number}
+                    </button>
                 """
-        return format_html(buttons)
 
-    display_passenger_table.short_description = "Passenger Info"
-    display_ticket_table.short_description = "Ticket Info"
-    display_seat_table.short_description = "Seat Info"
-    display_cancel_buttons.short_description = "❌ Չեղարկման Գործողություն"
+        buttons += """
+        <script>
+        function cancelTicket(ticketId, ticketNumber) {
+            if (!confirm('Չեղարկե՞լ տոմս ' + ticketNumber + '։')) return;
 
-    def has_add_permission(self, request):
-        return False
+            fetch('/api/cancel_ticket/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ticket_id: ticketId }),
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                    location.reload();
+                } else if (data.error) {
+                    alert("թռիչքը չեղարկվեց")
+                }
+            })
+            .catch(error => {
+                console.error("Սերվերի սխալ:", error);
+                alert("Թռիչքը չեղարկվեց։");
+            });
+        }
+        </script>
+        """
+        return mark_safe(buttons)
 
-    def has_change_permission(self, request, obj=None):
-        return True
 
 
 
