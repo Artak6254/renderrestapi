@@ -89,6 +89,8 @@ document.addEventListener("DOMContentLoaded", function () {
   let allSeats = [];
   let manualSeats = []; 
   let searchResultData = null;
+  let departureSeatId = null;
+  let returnSeatId = null;
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     const formData = new FormData(this);
@@ -173,43 +175,64 @@ document.addEventListener("DOMContentLoaded", function () {
       ${flight.flight_seats.map(seat => `
         <li>
           ${seat.seat_number}
-          <input type="checkbox" class="seat-checkbox" data-seat-id="${seat.id}" ${seat.is_taken ? "checked disabled" : ""}>
+          <input type="checkbox" class="seat-checkbox" data-seat-id="${seat.id}" data-seat-number="${seat.seat_number}" ${seat.is_taken ? "checked" : ""}>
         </li>
       `).join("")}
     </ul>
-  `;
-  setTimeout(() => {
-    document.querySelectorAll(".seat-checkbox").forEach(checkbox => {
-      checkbox.addEventListener("change", async function () {
-        const seatId = this.dataset.seatId;
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        if (this.checked) {
-          const response = await fetch(`/api/flights_seats/${seatId}/set_taken/`, {
-            method: "POST",
-            headers: { "X-CSRFToken": csrfToken }
-          });
-          if (response.ok) {
-            alert(`Նստատեղը ամրագրվեց`);
-            this.disabled = true;
-
-            // ✅ Ավելացնում ենք նստատեղը manualSeats array-ի մեջ
-            const seatNumberText = this.closest('li').textContent.trim().split("\n")[0].trim();
-            manualSeats.push({
-              seat_id: parseInt(seatId),
-              seat_number: seatNumberText,
-              seat_type: type,
-              is_taken: true,
-              flight_id: flight.id
+    `;
+    
+    setTimeout(() => {
+      document.querySelectorAll(".seat-checkbox").forEach(checkbox => {
+        checkbox.addEventListener("change", async function () {
+          const seatId = this.dataset.seatId;
+          const seatNumberText = this.dataset.seatNumber;
+          const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+          if (this.checked) {
+            // ✅ Տեղերը պահվում են որպես զբաղված
+            const response = await fetch(`/api/flights_seats/${seatId}/set_taken/`, {
+              method: "POST",
+              headers: { "X-CSRFToken": csrfToken },
             });
+    
+            if (response.ok) {
+              alert(`Նստատեղը ամրագրվեց`);
+    
+              // ✅ Ավելացնել manualSeats-ում
+              manualSeats = manualSeats.filter(s => s.seat_id !== parseInt(seatId)); // հեռացնենք նախորդը եթե կա
+              manualSeats.push({
+                seat_id: parseInt(seatId),
+                seat_number: seatNumberText,
+                seat_type: type,
+                is_taken: true,
+                flight_id: flight.id
+              });
+            } else {
+              alert("Սխալ առաջացավ նստատեղ ամրագրելիս");
+              this.checked = false;
+            }
+    
           } else {
-            alert("Սխալ առաջացավ");
-            this.checked = false;
+            // ✅ Տեղերը ազատվում են
+            const response = await fetch(`/api/flights_seats/${seatId}/set_free/`, {
+              method: "POST",
+              headers: { "X-CSRFToken": csrfToken },
+            });
+    
+            if (response.ok) {
+              alert(`Նստատեղը ազատվեց`);
+    
+              // ✅ Հեռացնել manualSeats-ից
+              manualSeats = manualSeats.filter(seat => seat.seat_id !== parseInt(seatId));
+            } else {
+              alert("Սխալ առաջացավ նստատեղ ազատելիս");
+              this.checked = true;
+            }
           }
-        }
+        });
       });
-    });
-  }, 0);
+    }, 0);
+    
   
 
     const seatsContainer = document.createElement("div");
@@ -241,7 +264,7 @@ document.addEventListener("DOMContentLoaded", function () {
       .then(response => response.json())
       .then(seats => {
         allSeats = allSeats.concat(seats.map(seat => ({...seat, flight_id: flightId, type: type})));
-        renderSeats(seats, container, tickets, type);
+        renderSeats(seats, container, tickets, type);  // ← այստեղ կոչ ենք անում
       })
       .catch(error => {
         console.error('Սխալ:', error);
@@ -250,11 +273,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function renderSeats(seats, container, tickets, type) {
+    console.log("▶️ Նստատեղերի ցուցակ բեռնվեց:", seats.length);
+  
     const seatsList = document.createElement("div");
     seatsList.style.display = "flex";
     seatsList.style.flexWrap = "wrap";
     seatsList.style.gap = "10px";
-
+  
     seats.forEach(seat => {
       const seatDiv = document.createElement('div');
       seatDiv.style.border = '1px solid #ccc';
@@ -263,26 +288,80 @@ document.addEventListener("DOMContentLoaded", function () {
       seatDiv.style.width = '150px';
       seatDiv.style.fontFamily = 'Arial, sans-serif';
       seatDiv.style.textAlign = 'center';
-      seatDiv.style.transition = 'border-color 0.3s ease';
-    
+  
       const seatNumber = document.createElement('h4');
       seatNumber.textContent = `№ ${seat.seat_number}`;
       seatDiv.appendChild(seatNumber);
-    
-      if (seat.is_taken) {
+  
+      const isSelected = Object.values(selectedSeats).includes(seat.id);
+  
+      // 👉 Նշված է որպես զբաղված կամ մենք ենք ընտրել
+      if (seat.is_taken || isSelected) {
         seatDiv.style.backgroundColor = '#ffcfcf';
-        seatDiv.appendChild(document.createTextNode("Զբաղված"));
+        seatDiv.appendChild(document.createTextNode(isSelected ? "✅ Ձեր ընտրությունը" : "Զբաղված"));
+  
+        // ✅ Չեղարկել կոճակ
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Չեղարկել';
+        Object.assign(cancelBtn.style, {
+          marginTop: '5px',
+          padding: '8px 16px',
+          backgroundColor: '#dc3545',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          fontWeight: '600',
+        });
+  
+        cancelBtn.addEventListener('mouseenter', () => {
+          cancelBtn.style.backgroundColor = '#a71d2a';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+          cancelBtn.style.backgroundColor = '#dc3545';
+        });
+  
+        cancelBtn.addEventListener('click', async () => {
+          const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+          try {
+            const res = await fetch(`/api/flights_seats/${seat.id}/set_free/`, {
+              method: "POST",
+              headers: { "X-CSRFToken": csrfToken },
+            });
+  
+            if (!res.ok) {
+              alert("Չհաջողվեց չեղարկել նստատեղը");
+              return;
+            }
+  
+            // 🔄 Թարմացնում ենք seat-ը locally
+            seat.is_taken = false;
+  
+            // ✅ Ջնջում ենք այն selectedSeats-ից
+            for (let key in selectedSeats) {
+              if (selectedSeats[key] === seat.id) {
+                delete selectedSeats[key];
+              }
+            }
+  
+            alert("Նստատեղը չեղարկվեց");
+            renderSeats(seats, container, tickets, type);
+          } catch (error) {
+            console.error("❌ Չեղարկման սխալ:", error);
+          }
+        });
+  
+        seatDiv.appendChild(cancelBtn);
+  
       } else {
         seatDiv.style.backgroundColor = '#ccffcc';
-    
+  
         tickets.forEach(ticket => {
-          if (ticket.passenger_type === 'baby') {
-            return; // baby-ի համար նստատեղ չընտրենք
-          }
+          if (ticket.passenger_type === 'baby') return;
+  
           const selectBtn = document.createElement('button');
           selectBtn.textContent = `Ընտրել ${ticket.passenger_type}`;
-    
-          // Կոճակի սթայլ
           Object.assign(selectBtn.style, {
             marginTop: '5px',
             padding: '8px 16px',
@@ -292,45 +371,64 @@ document.addEventListener("DOMContentLoaded", function () {
             borderRadius: '5px',
             cursor: 'pointer',
             fontWeight: '600',
-            transition: 'background-color 0.3s ease',
           });
-    
-          // Մկնիկի վրա անցնելիս գույնի փոփոխություն
+  
           selectBtn.addEventListener('mouseenter', () => {
             selectBtn.style.backgroundColor = '#0056b3';
           });
           selectBtn.addEventListener('mouseleave', () => {
             selectBtn.style.backgroundColor = '#007bff';
           });
-    
-          selectBtn.addEventListener('click', () => {
-            // Նախ մաքրենք բոլոր մյուս նստատեղերի border-ը նույն տիպի և տոմսի համար
-            const previouslySelected = document.querySelectorAll(`div[data-ticket="${type}_${ticket.id}"]`);
-            previouslySelected.forEach(div => {
-              div.style.border = '1px solid #ccc';
-            });
-    
-            selectedSeats[`${type}_${ticket.id}`] = seat.id;
-    
-            // Այս նստատեղի border-ը դարձնենք գույնը
-            seatDiv.style.border = '3px solid #ff9800';
-    
-            alert(`${ticket.passenger_type} համար ընտրված է ${type} նստատեղ № ${seat.seat_number}`);
-            calculateTotalPrice();
+  
+          selectBtn.addEventListener('click', async () => {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+            // Եթե նախկինում տեղ է ընտրվել այս ուղևորի համար, ջնջենք
+            for (let key in selectedSeats) {
+              if (key === `${type}_${ticket.id}`) {
+                delete selectedSeats[key];
+              }
+            }
+  
+            try {
+              const response = await fetch(`/api/flights_seats/${seat.id}/set_taken/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+              });
+  
+              if (!response.ok) {
+                const errText = await response.text();
+                console.error("❌ Սխալ նստատեղ վերցնելու ժամանակ:", errText);
+                alert("Չհաջողվեց ամրագրել նստատեղը։");
+                return;
+              }
+  
+              seat.is_taken = true;
+              selectedSeats[`${type}_${ticket.id}`] = seat.id;
+  
+              alert(`${ticket.passenger_type} ուղևորի համար ընտրվեց №${seat.seat_number}`);
+              calculateTotalPrice();
+              renderSeats(seats, container, tickets, type);
+            } catch (error) {
+              console.error("❌ Ցանցային սխալ նստատեղ ամրագրելիս:", error);
+              alert("Ցանցային սխալ առաջացավ նստատեղ ամրագրելիս։");
+            }
           });
-    
-          // Տեղադրում ենք data-ticket, որպեսզի մաքրման ժամանակ գտնենք
+  
           seatDiv.setAttribute('data-ticket', `${type}_${ticket.id}`);
-    
           seatDiv.appendChild(selectBtn);
         });
       }
-    
+  
       seatsList.appendChild(seatDiv);
     });
-    
+  
+    container.innerHTML = "";
     container.appendChild(seatsList);
   }
+  
+  
+  
   function generatePassengerForm(data) {
     passengerFormContainer.innerHTML = "<h3>Ուղևորների տվյալների մուտքագրում</h3>";
     passengerFormContainer.style.padding = "20px";
@@ -370,20 +468,61 @@ function createPassengerForm(index, ticket) {
   passengerDiv.style.borderRadius = "8px";
 
   passengerDiv.innerHTML = `<h4>Ուղևոր ${index} (${ticket.passenger_type})</h4>`;
-  passengerDiv.appendChild(createInputField(`title_${ticket.id}`, "Title", "text", true));
-  passengerDiv.appendChild(createInputField(`full_name_${ticket.id}`, "Full Name", "text", true));
+
+  // ✅ Gender Select Dropdown
+  passengerDiv.appendChild(createSelectField(`title_${ticket.id}`, "Title", [
+    { value: "male", label: "male" },
+    { value: "female", label: "female" }
+  ]));
+
+  passengerDiv.appendChild(createInputField(`name_${ticket.id}`, "Name", "text", true));
+  passengerDiv.appendChild(createInputField(`surname_${ticket.id}`, "Surname", "text", true));
   passengerDiv.appendChild(createInputField(`date_of_birth_${ticket.id}`, "Date of Birth", "date", true));
   passengerDiv.appendChild(createInputField(`citizenship_${ticket.id}`, "Citizenship", "text", true));
   passengerDiv.appendChild(createInputField(`passport_serial_${ticket.id}`, "Passport Serial", "text", true));
   passengerDiv.appendChild(createInputField(`passport_validity_${ticket.id}`, "Passport Validity", "date", true));
+
   if (ticket.passenger_type === "adult") {
     passengerDiv.appendChild(createInputField(`phone_${ticket.id}`, "Phone", "tel", true));
     passengerDiv.appendChild(createInputField(`email_${ticket.id}`, "Email", "email", true));
   }
+
   return passengerDiv;
 }
 
-  function createInputField(name, label, type, required = false) {
+function createSelectField(name, labelText, options) {
+  const wrapper = document.createElement("div");
+  wrapper.style.marginBottom = "10px";
+
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  label.htmlFor = name;
+  label.style.display = "block";
+  label.style.fontWeight = "bold";
+  wrapper.appendChild(label);
+
+  const select = document.createElement("select");
+  select.name = name;
+  select.required = true;
+  select.style.width = "100%";
+  select.style.padding = "2px";
+  select.style.borderRadius = "4px";
+  select.style.border = "1px solid #ccc";
+
+  // Add options
+  options.forEach(opt => {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    select.appendChild(option);
+  });
+
+  wrapper.appendChild(select);
+  return wrapper;
+}
+
+
+  function createInputField(name,  label, type, required = false) {
     const wrapper = document.createElement("div");
     wrapper.style.marginBottom = "12px";
     const labelEl = document.createElement("label");
@@ -406,7 +545,7 @@ function createPassengerForm(index, ticket) {
   }
 
   function calculateTotalPrice() {
-    const extraPrice = Object.keys(selectedSeats).length * 2000;
+    const extraPrice = Object.keys(selectedSeats).length * 5000;
     const total = baseTotalPrice + extraPrice;
     let totalPriceDiv = document.getElementById("totalPrice");
     if (!totalPriceDiv) {
@@ -419,49 +558,76 @@ function createPassengerForm(index, ticket) {
     }
     totalPriceDiv.textContent = `Ընդհանուր Գումարը․ ${total} դրամ`;
   }
+  async function markTicketAsSold(ticketId, csrfToken) {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/set_sold/`, {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": csrfToken,
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`❌ Տոմսի ${ticketId} set_sold սխալ:`, text);
+      } else {
+        console.log(`✅ Տոմս №${ticketId} հաջողությամբ վաճառվեց`);
+      }
+    } catch (err) {
+      console.error(`❌ Ցանցային սխալ set_sold ticket_id=${ticketId}:`, err);
+    }
+  }
+
+  async function markTicketAsUnsold(ticketId, csrfToken) {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/set_unsold/`, {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": csrfToken,
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`❌ Տոմսի ${ticketId} set_unsold սխալ:`, text);
+      } else {
+        console.log(`✅ Տոմս №${ticketId} վերադարձվեց վաճառքից`);
+      }
+    } catch (err) {
+      console.error(`❌ Ցանցային սխալ set_unsold ticket_id=${ticketId}:`, err);
+    }
+  }
+
   submitBtn.addEventListener("click", async function (e) {
     e.preventDefault();
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  
+
     const passengers_data = [];
     const ticket_data = [];
-    const seats = [];  // Ապագայում կուղարկվի archive-ին
-  
+    const seats = [];
+
     let totalPassengers = 0;
     let totalPrice = 0;
-  
-    const passengerTypePrices = {
-      adult: 20000,
-      child: 10000,
-      baby: 5000,
-    };
-  
-    const passengerTypesSet = new Set();
-  
-    // ✅ 1. Վերլուծում ենք բոլոր տոմսերը
+
     for (let ticketId in allTickets) {
       const ticket = allTickets[ticketId];
       totalPassengers += 1;
       totalPrice += parseInt(ticket.price);
-  
-      // ✅ Ուղևորի տվյալները
+
       const passenger = {
         ticket_id: ticketId,
         title: document.querySelector(`[name=title_${ticketId}]`).value,
-        full_name: document.querySelector(`[name=full_name_${ticketId}]`).value,
+        name: document.querySelector(`[name=name_${ticketId}]`).value,
+        surname: document.querySelector(`[name=surname_${ticketId}]`).value,
         date_of_birth: document.querySelector(`[name=date_of_birth_${ticketId}]`).value,
         citizenship: document.querySelector(`[name=citizenship_${ticketId}]`).value,
         passport_serial: document.querySelector(`[name=passport_serial_${ticketId}]`).value,
-        passport_validity: document.querySelector(`[name=passport_validity_${ticketId}]`).value,
+        passport_validity_period: document.querySelector(`[name=passport_validity_${ticketId}]`).value,
         phone: ticket.passenger_type === "adult" ? document.querySelector(`[name=phone_${ticketId}]`).value : null,
         email: ticket.passenger_type === "adult" ? document.querySelector(`[name=email_${ticketId}]`).value : null,
         passenger_type: ticket.passenger_type,
       };
-  
+
       passengers_data.push(passenger);
-      passengerTypesSet.add(ticket.passenger_type);
-      console.log(selectedSeats, allSeats);
-      // ✅ Նստատեղերը (departure/return) ավելացնել seats մեջ
+
       ["departure", "return"].forEach(type => {
         const seatId = selectedSeats[`${type}_${ticketId}`];
         if (seatId) {
@@ -477,10 +643,8 @@ function createPassengerForm(index, ticket) {
           }
         }
       });
-      
     }
-  
-    // ✅ 2. Ստեղծում ենք ticket_data
+
     for (let ticketId in allTickets) {
       const ticket = allTickets[ticketId];
       ticket_data.push({
@@ -491,16 +655,55 @@ function createPassengerForm(index, ticket) {
         ticket_is_sold: true,
       });
     }
-  
-    // ✅ 3. Թռիչքի տվյալները
+
+    manualSeats?.forEach(el => {
+      if (el?.seat_type === "departure") {
+        departureSeatId = el?.seat_id;
+      } else if (el?.seat_type === "return") {
+        returnSeatId = el?.seat_id;
+      }
+    });
+
+    // ✅ Ուղարկում ենք ուղևորները
+    for (let i = 0; i < passengers_data.length; i++) {
+      const passenger = passengers_data[i];
+      const ticketId = passenger.ticket_id;
+
+      try {
+        const res = await fetch("/api/passangers/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken,
+          },
+          body: JSON.stringify({
+            ...passenger,
+            departure_seat_id: departureSeatId || null,
+            return_seat_id: returnSeatId || null
+          })
+        });
+
+        if (res.ok) {
+          await markTicketAsSold(ticketId, csrfToken);
+        } else {
+          const text = await res.text();
+          console.error(`❌ Տոմսի ${ticketId} ուղևորի սխալ:`, text);
+          alert(`Տոմս №${ticketId} ուղևորի տվյալները չեն պահպանվել`);
+        }
+      } catch (err) {
+        console.error(`❌ Ցանցային սխալ ticket_id=${ticketId}:`, err);
+        alert(`Տոմս №${ticketId} ցանցային սխալ`);
+      }
+    }
+
     const departureFlight = searchResultData.departure_flights?.[0] || null;
     const returnFlight = searchResultData.return_flights?.[0] || null;
-  
+
     if (!departureFlight) {
       alert("Չհաջողվեց գտնել գնալու թռիչքի տվյալները։");
       return;
     }
-  
+
     const archiveData = {
       flight_from: departureFlight.from_here,
       flight_to: departureFlight.to_there,
@@ -512,17 +715,14 @@ function createPassengerForm(index, ticket) {
       total_price: totalPrice.toString(),
       passengers_data: passengers_data,
       ticket_data: ticket_data,
-      seats: [...seats, ...manualSeats], 
+      seats: [...seats, ...manualSeats],
     };
-  
-    console.log("📦 Արխիվացվող տվյալները:", archiveData);
-  
-    // ✅ 4. Ուղարկում ենք արխիվ
+
     submitBtn.disabled = true;
     submitBtn.innerText = "Արխիվացվում է...";
-  
+
     try {
-      const response = await fetch("http://localhost:8085/api/sold_archive/", {
+      const res = await fetch("/api/sold_archive/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -530,28 +730,36 @@ function createPassengerForm(index, ticket) {
         },
         body: JSON.stringify(archiveData),
       });
-  
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Արխիվացման սխալ:", errorText);
-        alert("Սխալ առաջացավ տվյալները ուղարկելիս։");
+
+      if (res.ok) {
+        alert("Տվյալները հաջողությամբ արխիվացվեցին։");
+        location.reload();
       } else {
-        alert("Բոլոր տվյալները հաջողությամբ արխիվացվեցին։");
-        console.log("🔁 Կփորձի վերաբեռնել էջը");
-        location.reload();  // ✅ Այս տողը պիտի աշխատի
+        const text = await res.text();
+        console.error("❌ Արխիվացման սխալ:", text);
+        alert("Սխալ առաջացավ արխիվացնելիս։");
       }
-      
-    } catch (error) {
-      console.error("❌ Ցանցային սխալ:", error);
+    } catch (err) {
+      console.error("❌ Ցանցային սխալ:", err);
       alert("Ցանցային սխալ առաջացավ։");
     } finally {
       submitBtn.disabled = false;
       submitBtn.innerText = "Ուղարկել";
     }
   });
-  
-  
-  
 
+  // ✅ Չեղարկման կոճակի իրադարձություն
+  cancelBtn?.addEventListener("click", async function () {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    for (let ticketId in allTickets) {
+      await markTicketAsUnsold(ticketId, csrfToken);
+    }
+
+    alert("Բոլոր տոմսերը վերադարձվեցին վաճառքից։");
+  });
 });
 
+
+
+ 

@@ -310,8 +310,9 @@ class Passengers(models.Model):
     phone = models.CharField(max_length=50, blank=True, null=True)
     email = models.CharField(max_length=60, blank=True, null=True)
     title = models.CharField(max_length=10)
-    full_name = models.CharField(max_length=100)
-    date_of_birth = models.CharField(max_length=100, null=True)
+    name = models.CharField(max_length=100, default="add name")
+    surname = models.CharField(max_length=100)
+    date_of_birth = models.DateField(null=True, blank=True)
     citizenship = models.CharField(max_length=30)
     price = models.IntegerField(default=0)
     passport_serial = models.CharField(max_length=60)
@@ -331,7 +332,7 @@ class FlightSeats(models.Model):
         ('return', 'Return'),
     ]
 
-    flight = models.ForeignKey('Flights', related_name='flight_seats', on_delete=models.CASCADE)
+    flight = models.ForeignKey('Flights', related_name='flight_seats', null=True, blank=True, on_delete=models.CASCADE)
     seat_number = models.CharField(max_length=10)
     seat_type = models.CharField(max_length=10, choices=SEAT_TYPE_CHOICES)
     is_taken = models.BooleanField(default=False)
@@ -364,7 +365,7 @@ class BookingTickets(models.Model):
 class PassengersPrice(models.Model):
     adult_price = models.CharField(max_length=50, default="20000")
     child_price = models.CharField(max_length=50, default="10000")
-    baby_price= models.CharField(max_length=50, default="0")
+    baby_price= models.CharField(max_length=50, default="5000")
     
     def __str__(self):
         return f"adult {self.adult_price} child {self.child_price} baby{self.baby_price}"
@@ -412,7 +413,7 @@ class FlightSchedule(models.Model):
                 arrival_airport_short_name=self.arrival_airport_short_name,
                 departure_date=current_date,
                 departure_time=self.time.strftime('%H:%M'),
-                arrival_time="00:00",  # կամ հաշվարկված ժամ
+                arrival_time=self.arrival_time, 
                 bort_number=self.bort_number
             )
 

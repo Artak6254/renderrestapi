@@ -100,9 +100,9 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    'PAGE_SIZE': 20,
 }
-
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8085', 'http://localhost:8085']
 ROOT_URLCONF = 'base.urls'
 CORS_ALLOW_ALL_ORIGINS = True
 # Templates settings

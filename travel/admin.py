@@ -17,6 +17,10 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 import json
 from .forms import BookingTicketsSearchForm
+from django.contrib import admin
+from django.utils.safestring import mark_safe
+from django.db.models import JSONField
+from django.forms import Textarea
 
 from .models import (
     Logo, Navbars, SubnavbarsList, HomePageIntro, HomepageBookingSearch, 
@@ -54,6 +58,13 @@ class BookTicketsAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         return urls
+    
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Optional՝ չթույլատրել ջնջել նույնպես
+
 
 
 
@@ -66,16 +77,10 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
         'flight_from', 'flight_to', 'flight_departure_date', 'flight_return_date',
         'departure_time', 'arrival_time', 'total_price', 'total_passengers',
     )
- 
-    readonly_fields = (
-        'flight_from', 'flight_to', 'flight_departure_date', 'flight_return_date',
-        'departure_time', 'arrival_time', 'total_price',
-        'total_passengers', 'display_passenger_table',
-        'display_ticket_table', 'display_seat_table',
-        'display_cancel_buttons',
-    )
 
-    exclude = ('passengers_data', 'ticket_data', 'seats')
+    formfield_overrides = {
+        JSONField: {'widget': Textarea(attrs={'rows': 10, 'cols': 100})}
+    }
 
     fieldsets = (
         ('✈️ Flight Info', {
@@ -92,16 +97,19 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
         }),
         ('🎫 Ticket Info', {
             'fields': (
-                'display_ticket_table',
+                'ticket_data',  # ✅ JSONField խմբագրելի
+                'display_ticket_table',  # ✅ Աղյուսակով ցուցադրում
             )
         }),
         ('💺 Seat Info', {
             'fields': (
+                'seats',  # ✅ JSONField խմբագրելի
                 'display_seat_table',
             )
         }),
         ('👥 Passenger Info', {
             'fields': (
+                'passengers_data',  # ✅ JSONField խմբագրելի
                 'display_passenger_table',
             )
         }),
@@ -111,6 +119,15 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
             )
         }),
     )
+
+    readonly_fields = (
+        'display_passenger_table',
+        'display_ticket_table',
+        'display_seat_table',
+        'display_cancel_buttons',
+    )
+
+    exclude = ()
 
     @admin.action(description="📤 Export All Passenger Data as CSV")
     def export_sold_archive_with_passengers(self, request, queryset):
@@ -134,15 +151,16 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
                 writer.writerow([
                     archive.flight_from,
                     archive.flight_to,
-                    archive.flight_departure_date.strftime('%Y-%m-%d') if archive.flight_departure_date else '',
-                    archive.flight_return_date.strftime('%Y-%m-%d') if archive.flight_return_date else '',
+                    archive.flight_departure_date.strftime('%d-%m-%Y') if archive.flight_departure_date else '',
+                    archive.flight_return_date.strftime('%d-%m-%Y') if archive.flight_return_date else '',
                     archive.departure_time,
                     archive.arrival_time,
                     archive.total_price,
                     p.get('ticket_number', ''),
                     p.get('ticket_type', ''),
                     p.get('ticket_is_sold', ''),
-                    p.get('full_name', ''),
+                    p.get('name', ''),
+                     p.get('surname', ''),
                     p.get('passport_serial', ''),
                     p.get('title', ''),
                     p.get('date_of_birth', ''),
@@ -159,15 +177,15 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
         for p in obj.passengers_data or []:
             rows += f"""
                 <tr>
-                    <td>{p.get("full_name", "")}</td>
+                    <td>{p.get("name", "")}</td>
+                    <td>{p.get("surname", "")}</td>
                     <td>{p.get("passport_serial", "")}</td>
+                    <td>{p.get("passport_validity_period", "")}</td>
                     <td>{p.get("title", "")}</td>
                     <td>{p.get("date_of_birth", "")}</td>
                     <td>{p.get("citizenship", "")}</td>
                     <td>{p.get("phone", "")}</td>
                     <td>{p.get("email", "")}</td>
-                    <td>{p.get("ticket_number", "")}</td>
-                    <td>{p.get("ticket_type", "")}</td>
                     <td>{p.get("passenger_type", "")}</td>
                     <td>{p.get("price", "")}</td>
                 </tr>
@@ -175,9 +193,9 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
         return mark_safe(f"""
         <table style="width:100%; border-collapse: collapse;" border="1">
             <tr>
-                <th>Full Name</th><th>Passport</th><th>Title</th><th>Date of Birth</th>
-                <th>Citizenship</th><th>Phone</th><th>Email</th><th>Ticket No.</th>
-                <th>Type</th><th>Category</th><th>Price</th>
+                <th>Name</th><th>Surname</th><th>Passport</th><th>Passport Validate</th>
+                <th>Title</th><th>Date of Birth</th><th>Citizenship</th>
+                <th>Phone</th><th>Email</th><th>Passenger Type</th><th>Price</th>
             </tr>{rows}
         </table>
         """)
@@ -210,6 +228,26 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
                     <td>{s.get("seat_id", "")}</td>
                     <td>{s.get("seat_number", "")}</td>
                     <td>{s.get("seat_type", "")}</td>
+                    <td>{s.get("flight_id", "")}</td>
+                </tr>
+            """
+        return mark_safe(f"""
+        <table style="width:100%; border-collapse: collapse;" border="1">
+            <tr>
+                <th>Seat ID</th><th>Number</th><th>Type</th><th>Flight ID</th>
+            </tr>{rows}
+        </table>
+        """)
+
+    
+    def display_seat_table(self, obj):
+        rows = ""
+        for s in obj.seats or []:
+            rows += f"""
+                <tr>
+                    <td>{s.get("seat_id", "")}</td>
+                    <td>{s.get("seat_number", "")}</td>
+                    <td>{s.get("seat_type", "")}</td>
                     <td>{s.get("is_taken", "")}</td>
                     <td>{s.get("flight_id", "")}</td>
                 </tr>
@@ -234,7 +272,7 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
             if ticket_id:
                 buttons += f"""
                     <button 
-                        onclick="cancelTicket('{ticket_id}', '{ticket_number}')" 
+                       onclick="cancelTicket('{ticket_id}', '{ticket_number}', event)" 
                         style="
                             background-color:#dc3545; color:white; border:none; 
                             padding:6px 12px; border-radius:5px; cursor:pointer; margin-bottom: 5px;
@@ -245,16 +283,38 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
 
         buttons += """
         <script>
-        function cancelTicket(ticketId, ticketNumber) {
+        // Get CSRF token from cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
+        function cancelTicket(ticketId, ticketNumber, event) {
             if (!confirm('Չեղարկե՞լ տոմս ' + ticketNumber + '։')) return;
+
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+            const btn = event.target;
 
             fetch('/api/cancel_ticket/', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
                 },
                 body: JSON.stringify({ ticket_id: ticketId }),
-                credentials: 'same-origin'
+                credentials: 'include'
             })
             .then(response => {
                 if (!response.ok) {
@@ -263,22 +323,28 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
                 return response.json();
             })
             .then(data => {
-                if (data.message) {
-                    alert(data.message);
-                    location.reload();
-                } else if (data.error) {
-                    alert("թռիչքը չեղարկվեց")
-                }
+                alert(data.message || "Տոմսը չեղարկվեց։");
+                btn.innerText = "Չեղարկված ✅";
+                btn.disabled = true;
+                btn.style.backgroundColor = "#6c757d";
+                btn.style.cursor = "not-allowed";
             })
             .catch(error => {
                 console.error("Սերվերի սխալ:", error);
-                alert("Թռիչքը չեղարկվեց։");
+                alert("Չեղարկման սխալ։");
             });
         }
+
         </script>
         """
+
         return mark_safe(buttons)
 
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Optional՝ չթույլատրել ջնջել նույնպես
 
 
 
@@ -410,15 +476,6 @@ class PassengersAdmin(admin.ModelAdmin):
 
 
 
-# class FlightTicketInline(admin.TabularInline):
-#     model = Tickets
-#     extra = 0
-#     readonly_fields = (
-#         'is_active', 'is_sold',
-#         'ticket_number',
-#         'price'
-#     )
-#     can_delete = False
     
     
     
@@ -428,13 +485,6 @@ class FlightSeatsInline(admin.TabularInline):
     readonly_fields = ('seat_type', 'seat_number', 'is_taken')
     can_delete = False
 
-
-
-# class TicketsInline(admin.TabularInline):
-#     model = Tickets
-#     extra = 0  
-#     fields = ('is_active', 'is_sold','price')  
-#     show_change_link = True
 
 
 

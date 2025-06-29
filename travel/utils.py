@@ -15,24 +15,30 @@ def render_to_pdf(template_src, context_dict={}):
 
 def generate_ticket_pdf(archive_data: dict):
     passengers = archive_data.get("passengers_data", [])
+    ticket_data = archive_data.get("ticket_data", {})
+    seats = archive_data.get("seats", [])
 
     context = {
-        "name": archive_data.get("fullname"),
-        "passport_serial": archive_data.get("passport_serial"),
-        "phone": passengers[0].get("phone", "") if passengers else "",
-        "ticket_number": archive_data.get("ticket_number"),
-        "departure_seat": passengers[0].get("departure_seat", "") if passengers else "",
-        "return_seat": passengers[0].get("return_seat", "") if passengers else "",
+        # Flight info
         "flight_from": archive_data.get("flight_from"),
         "flight_to": archive_data.get("flight_to"),
         "flight_departure_date": archive_data.get("flight_departure_date"),
         "flight_return_date": archive_data.get("flight_return_date"),
         "departure_time": archive_data.get("departure_time"),
         "arrival_time": archive_data.get("arrival_time"),
-        "bort_number": archive_data.get("bort_number"),
-        "adult_count": sum(1 for p in passengers if p.get('passenger_type') == 'adult'),
-        "child_count": sum(1 for p in passengers if p.get('passenger_type') == 'child'),
-        "baby_count": sum(1 for p in passengers if p.get('passenger_type') == 'baby'),
+
+        # Passengers info
+        "passengers": passengers,
+        "adult_count": sum(1 for p in passengers if p.get("passenger_type") == "adult"),
+        "child_count": sum(1 for p in passengers if p.get("passenger_type") == "child"),
+        "baby_count": sum(1 for p in passengers if p.get("passenger_type") == "baby"),
+
+        # Ticket info
+        "ticket_data": ticket_data,
+        "seats": seats,
+
+        # Summary
+        "total_passengers": archive_data.get("total_passengers"),
         "total_price": archive_data.get("total_price"),
     }
     return render_to_pdf('index.html', context)

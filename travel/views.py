@@ -163,8 +163,6 @@ class LangFilteredViewSet(viewsets.ModelViewSet):
         
         if lang:
             queryset = queryset.filter(lang=lang)
-        if user.is_authenticated:
-            queryset = queryset.filter(owner=user)
         
         return queryset
 
@@ -199,7 +197,7 @@ class HomePageWhyChooseUsViewSet(LangFilteredViewSet):
     queryset = HomePageWhyChooseUs.objects.all()
     serializer_class = HomePageWhyChooseUsSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
-
+    
 class HomePageFaqViewSet(LangFilteredViewSet):
     queryset = HomePageFaq.objects.all()
     serializer_class = HomePageFaqSerializer
@@ -370,8 +368,6 @@ class SearchAvailableFlightsView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
     
     
-
-@method_decorator(csrf_exempt, name='dispatch')    
 class CancelTicketAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -383,29 +379,32 @@ class CancelTicketAPIView(APIView):
         try:
             ticket = Tickets.objects.get(id=ticket_id)
 
-            # Ուղևորների ազատում
             for passenger in ticket.passengers.all():
+                # ✅ Դեպի ուղղությամբ նստատեղը ազատենք
                 if passenger.departure_seat_id:
-                    departure_seat = passenger.departure_seat_id
-                    departure_seat.is_taken = False
-                    departure_seat.flight = None  # ջնջում ենք flight_id-ը
-                    departure_seat.save()
+                    seat = passenger.departure_seat_id
+                    seat.is_taken = False
+                    seat.save(update_fields=['is_taken'])
 
+                # ✅ Վերադարձի ուղղությամբ նստատեղը ազատենք
                 if passenger.return_seat_id:
-                    return_seat = passenger.return_seat_id
-                    return_seat.is_taken = False
-                    return_seat.flight = None  # ջնջում ենք flight_id-ը
-                    return_seat.save()
+                    seat = passenger.return_seat_id
+                    seat.is_taken = False
+                    seat.save(update_fields=['is_taken'])
 
+                # ✅ Հեռացնում ենք ուղևորին
                 passenger.delete()
 
+            # ✅ Նշում ենք տոմսը որպես չվաճառված
             ticket.is_sold = False
-            ticket.save()
-            return Response({"message": "Տոմսը չեղարկվեց։"}, status=200)
+            ticket.save(update_fields=['is_sold'])
+
+            return Response({"message": "Տոմսը հաջողությամբ չեղարկվեց։"}, status=200)
 
         except Tickets.DoesNotExist:
             return Response({"error": "Տոմսը գոյություն չունի։"}, status=404)
 
+        
 
 class PassngersViewSet(viewsets.ModelViewSet):
     serializer_class = PassengersSerializer
@@ -440,8 +439,6 @@ class PassngersViewSet(viewsets.ModelViewSet):
         if all_seats_taken:
             ticket.is_sold = True
             ticket.save()
-
-
 
 
 
@@ -481,6 +478,19 @@ class FlightSeatsViewSet(viewsets.ModelViewSet):
             return Response({'success': True, 'message': 'Նստատեղը նշվել է որպես վերցված։'})
         except FlightSeats.DoesNotExist:
             return Response({'error': 'Նստատեղը չի գտնվել։'}, status=status.HTTP_404_NOT_FOUND)
+       
+        
+    @action(detail=True, methods=['post'])
+    def set_free(self, request, pk=None):
+        try:
+            seat = FlightSeats.objects.get(pk=pk)
+            seat.is_taken = False
+            seat.hold_until = None
+            seat.hold_by = None
+            seat.save()
+            return Response({'success': True, 'message': 'Նստատեղը ազատվել է։'})
+        except FlightSeats.DoesNotExist:
+            return Response({'error': 'Նստատեղը չի գտնվել։'}, status=status.HTTP_404_NOT_FOUND)    
     
     @action(detail=True, methods=['post'])
     def hold(self, request, pk=None):
@@ -538,6 +548,7 @@ class FlightSeatsViewSet(viewsets.ModelViewSet):
 
 
 
+
 class FlightsViewSet(viewsets.ModelViewSet):
     serializer_class = FlightsSerializer
     
@@ -579,6 +590,16 @@ class TicketsViewSet(viewsets.ModelViewSet):
         except Tickets.DoesNotExist:
             return Response({'error': 'Տոմսը չի գտնվել։'}, status=status.HTTP_404_NOT_FOUND)
     
+    @action(detail=True, methods=['post'])
+    def set_unsold(self, request, pk=None):
+        try:
+            ticket = Tickets.objects.get(pk=pk)
+            ticket.is_sold = False
+            ticket.save()
+            return Response({'success': True, 'message': f'Տոմսը վերադարձվել է վաճառքից։{ticket.id}'})
+        except Tickets.DoesNotExist:
+            return Response({'error': 'Տոմսը չի գտնվել։'}, status=status.HTTP_404_NOT_FOUND)
+
     def get_queryset(self):
         if self.action == 'list':
             return Tickets.objects.exclude(
@@ -620,9 +641,9 @@ class SoldFlightArchiveAPIView(APIView):
             return Response({"message": "Տվյալները հաջողությամբ արխիվացվեցին։"}, status=status.HTTP_201_CREATED)
         else:
             logger.error(f"Serializer errors: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)      
+   
+   
         
 class FlightDirectionViewSet(viewsets.ModelViewSet):
       permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
@@ -674,14 +695,14 @@ class AirTransContactView(LangFilteredViewSet):
 class ListTransContactView(LangFilteredViewSet):
     queryset = ListAirContact.objects.all()
     serializer_class = ListAirContactSerializer       
-    
+ 
     
     
 
 class InfoForTransferView(LangFilteredViewSet):
     queryset = InfoForTransferContact.objects.all()
     serializer_class = InfoForTransferContactSerializer
-                      
+ 
                 
                 
 
@@ -690,13 +711,12 @@ class InfoForTransferView(LangFilteredViewSet):
 class ImportantInfoView(LangFilteredViewSet):
         queryset = ImportantInfo.objects.all()
         serializer_class = ImportantInfoSerializer
-                
-    
+   
     
 class TopHeadingAirTransView(LangFilteredViewSet):
         queryset = TopHeadingAirTrans.objects.all()
         serializer_class = TopHeadingAirTransSerializer
-     
+       
     
     
 class TopHeadingBaggageView(LangFilteredViewSet):
@@ -708,7 +728,7 @@ class TopHeadingBaggageView(LangFilteredViewSet):
 class BaggageBoxView(LangFilteredViewSet):
         queryset = BaggageRowBox.objects.all()
         serializer_class = BaggageBoxSerializer
-          
+       
     
 
 
@@ -718,7 +738,7 @@ class BaggageBoxView(LangFilteredViewSet):
 class TopHeadingCertificateView(LangFilteredViewSet):
         queryset = TopHeadingCertificate.objects.all()
         serializer_class = TopHeadingCertificateSerializer
-      
+        
 
 
 
@@ -726,14 +746,14 @@ class TopHeadingCertificateView(LangFilteredViewSet):
 class CertificateDescrView(LangFilteredViewSet):
         queryset = CertificateDescr.objects.all()
         serializer_class = CertificateDescrSerializer
-        
+    
     
     
   
 class CertificatesImagesView(LangFilteredViewSet):
         queryset = CertificatesImages.objects.all()
         serializer_class = CertificatesImagesSerializer
-
+  
     
 
 
@@ -741,33 +761,35 @@ class CertificatesImagesView(LangFilteredViewSet):
 class TopHeadingContactView(LangFilteredViewSet):
         queryset = TopHeadingContact.objects.all()
         serializer_class = TopHeadingContactSerializer
-      
+
     
     
 
 class ContactImagesView(LangFilteredViewSet):
         queryset = ContactImages.objects.all()
         serializer_class = ContactImagesSerializer
- 
+      
  
     
 
 class ContactInfoView(LangFilteredViewSet):
         queryset = ContactInfo.objects.all()
         serializer_class = ContactInfoSerializer
-  
+      
 
 
 
 class SeatChoiceDescriptionView(LangFilteredViewSet):
     queryset = SeatChoiceDescription.objects.all()
     serializer_class = SeatChoiceDescriptionSerializer
+ 
             
     
     
 class TopHeadingSeatChoiceView(LangFilteredViewSet):
     queryset = TopHeadingSeatChoice.objects.all()
     serializer_class = TopHeadingSeatChoiceSerializer
+    
                      
     
     
@@ -775,40 +797,35 @@ class TopHeadingSeatChoiceView(LangFilteredViewSet):
 class SeatChoicePriceViews(LangFilteredViewSet):
         queryset = SeatChoicePrice.objects.all()
         serializer_class = SeatChoicePriceSerializer
+        
               
     
-    
-    
-
-
-        
-
-
-
-
- 
 
 class  BookingResultsPageLabelView(LangFilteredViewSet):
     queryset =  BookingResultsPageLabel.objects.all()
     serializer_class =  BookingResultsPageLabelSerializer
+ 
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
 
 class  BookingNavigationView(LangFilteredViewSet):
     queryset =  BookingNavigation.objects.all()
     serializer_class =  BookingNavigationSerializer
+
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
     
 class  OrderSummaryView(LangFilteredViewSet):
     queryset =  OrderSummary.objects.all()
     serializer_class =  OrderSummarySerializer
+   
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
 
 class  BookingClientInfoPageLabelView(LangFilteredViewSet):
     queryset =  BookingClientInfoPageLabel.objects.all()
     serializer_class =  BookingClientInfoPageLabelSerializer
+
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
             
         
@@ -817,6 +834,7 @@ class  BookingClientInfoPageLabelView(LangFilteredViewSet):
 class BookingPaymentPageLabelView(LangFilteredViewSet):
     queryset =  BookingPaymentPageLabel.objects.all()
     serializer_class =  BookingPaymentPageLabelSerializer
+ 
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
   
@@ -825,34 +843,40 @@ class BookingPaymentPageLabelView(LangFilteredViewSet):
 class AboutUsTopHeadingViewSet(LangFilteredViewSet):
     queryset = AboutUsTopHeading.objects.all()
     serializer_class = AboutUsTopHeadingSerializer
+    
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
     
 
 class AboutUsDescrViewSet(LangFilteredViewSet):
     queryset = AboutUsDescr.objects.all()
     serializer_class = AboutUsDescrSerializer
+   
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
  
 class ContactIntroViewSet(LangFilteredViewSet):
     queryset = ContactIntro.objects.all()
     serializer_class = ContactIntroSerializer
+   
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
 
 class TopContactViewSet(LangFilteredViewSet):
     queryset = TopContact.objects.all()
     serializer_class = TopContactSerializer
+ 
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
                                                                 
 
 class ContactNewInfoViewSet(LangFilteredViewSet):
-    queryset = ContactNewInfo.objects.all()
+    queryset = ContactNewInfo.objects.all().order_by('id')
     serializer_class = ContactNewInfoSerializer
+
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
 
 
 class ContactMapViewSet(LangFilteredViewSet):
     queryset = ContactMap.objects.all()
     serializer_class = ContactMapSerializer
+
     # permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
                                                                                                             
