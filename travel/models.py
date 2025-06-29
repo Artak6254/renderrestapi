@@ -323,7 +323,7 @@ class Passengers(models.Model):
     return_seat_id = models.ForeignKey("FlightSeats", on_delete=models.CASCADE, related_name="return_passengers", null=True, blank=True)
 
     def __str__(self):
-        return f"{self.full_name} ({self.passenger_type})"
+        return f"{self.name} - {self.surname} ({self.passenger_type})"
 
 
 class FlightSeats(models.Model):

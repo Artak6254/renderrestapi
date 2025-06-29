@@ -18,34 +18,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // First fetch for directions
   fetch("/api/flight_direction/grouped/")
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("Failed to fetch flight directions");
-      }
-      return response.json();
-    })
-    .then(data => {
-      const fromSelect = document.getElementById("from_to");
-      const toSelect = document.getElementById("to_there");
+  .then(response => {
+    if (!response.ok) throw new Error("Failed to fetch flight directions");
+    return response.json();
+  })
+  .then(data => {
+    const fromSelect = document.getElementById("from_to");
+    const toSelect = document.getElementById("to_there");
 
-      fromSelect.innerHTML = '<option value="">Select</option>';
+    const fromData = data.from_here;
+    const toData = data.to_there;
+
+    // Populate FROM — միայն մեկ անգամ, երբ էջը բեռնում է
+    fromSelect.innerHTML = '<option value="">Select</option>';
+    fromData.forEach(item => {
+      const option = document.createElement("option");
+      option.value = item.from_here;
+      option.textContent = `${item.from_here} (${item.flight_airport_short_name})`;
+      fromSelect.appendChild(option);
+    });
+
+    // Populate TO (ֆունկցիա՝ կախված selectedFrom-ից)
+    function populateTo(exclude = null) {
       toSelect.innerHTML = '<option value="">Select</option>';
+      toData
+        .filter(item => item.to_there !== exclude)  // ✅ exclude same as from
+        .forEach(item => {
+          const option = document.createElement("option");
+          option.value = item.to_there;
+          option.textContent = `${item.to_there} (${item.arrival_airport_short_name})`;
+          toSelect.appendChild(option);
+        });
+    }
 
-      data.from_here.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item.from_here;
-        option.textContent = `${item.from_here} (${item.flight_airport_short_name})`;
-        fromSelect.appendChild(option);
-      });
+    // Սկզբնական վիճակում՝ բոլորը տեսանելի
+    populateTo();
 
-      data.to_there.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item.to_there;
-        option.textContent = `${item.to_there} (${item.arrival_airport_short_name})`;
-        toSelect.appendChild(option);
-      });
-    })
-    .catch(error => console.error("❌ Error fetching flight directions:", error));
+    // Երբ ընտրում ես from-ը => փոխիր միայն TO-ը
+    fromSelect.addEventListener("change", () => {
+      const selectedFrom = fromSelect.value;
+      populateTo(selectedFrom);
+    });
+
+    // ✅ TO select-ը չի փոխում ոչինչ
+  })
+  .catch(error => console.error("❌ Error fetching flight directions:", error));
+;
+
 
   // Add click event listener to search button
   const searchBtn = document.getElementById("flightSearchForm");
@@ -55,6 +74,11 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
 });
+
+
+
+
+
 
 
 
@@ -620,7 +644,7 @@ function createSelectField(name, labelText, options) {
         date_of_birth: document.querySelector(`[name=date_of_birth_${ticketId}]`).value,
         citizenship: document.querySelector(`[name=citizenship_${ticketId}]`).value,
         passport_serial: document.querySelector(`[name=passport_serial_${ticketId}]`).value,
-        passport_validity_period: document.querySelector(`[name=passport_validity_${ticketId}]`).value,
+        passport_validity: document.querySelector(`[name=passport_validity_${ticketId}]`).value,
         phone: ticket.passenger_type === "adult" ? document.querySelector(`[name=phone_${ticketId}]`).value : null,
         email: ticket.passenger_type === "adult" ? document.querySelector(`[name=email_${ticketId}]`).value : null,
         passenger_type: ticket.passenger_type,

@@ -48,11 +48,11 @@ from .models import (
     Tickets, PassangersCount, FlightDirection, AirTransContact,InfoForTransferContact,
     ImportantInfo,TopHeadingAirTrans,TopHeadingBaggage,BaggageRowBox,
     TopHeadingCertificate,CertificateDescr,CertificatesImages,TopHeadingContact,
-    ContactImages,ContactInfo,SeatChoiceDescription,
+    ContactImages,ContactInfo,SeatChoiceDescription,FlightSchedule,
     TopHeadingSeatChoice,SeatChoicePrice,ListAirContact,TicketPrice,
     BookingResultsPageLabel ,BookingNavigation, OrderSummary, BookingClientInfoPageLabel,
     BookingPaymentPageLabel,SoldFlightArchive,AboutUsTopHeading,AboutUsDescr,ContactIntro,
-    TopContact,ContactNewInfo,ContactMap
+    TopContact,ContactNewInfo,ContactMap,
     )
 from .serializers import (
     LogoSerializer, NavbarsSerializer, BookingSearchSerializer,
@@ -207,6 +207,8 @@ class FooterViewSet(LangFilteredViewSet):
     queryset = Footer.objects.all()
     serializer_class = FooterSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAdminOrOwner]
+
+
 
 
 class SearchAvailableFlightsView(APIView):
@@ -366,6 +368,7 @@ class SearchAvailableFlightsView(APIView):
             response_data["return_flights"] = return_flights
 
         return Response(response_data, status=status.HTTP_200_OK)
+    
     
     
 class CancelTicketAPIView(APIView):
@@ -650,38 +653,35 @@ class FlightDirectionViewSet(viewsets.ModelViewSet):
 
       @action(detail=False, methods=['get'], url_path='grouped')
       def grouped(self, request):
-                flights = Flights.objects.all()
+            schedules = FlightSchedule.objects.all()
 
-                from_here_data = []
-                to_there_data = []
+            from_here_data = []
+            to_there_data = []
 
-                seen_from = set()
-                seen_to = set()
+            seen_from = set()
+            seen_to = set()
 
-                for flight in flights:
-                    if flight.from_here not in seen_from:
-                        seen_from.add(flight.from_here)
-                        from_here_data.append({
-                            "id": flight.id,
-                            "from_here": flight.from_here,
-                            "flight_airport_name": flight.flight_airport_name,
-                            "flight_airport_short_name": flight.flight_airport_short_name,
-                        })
+            for sched in schedules:
+                if sched.from_here not in seen_from:
+                    seen_from.add(sched.from_here)
+                    from_here_data.append({
+                        "from_here": sched.from_here,
+                        "flight_airport_name": sched.flight_airport_name,
+                        "flight_airport_short_name": sched.flight_airport_short_name,
+                    })
 
-                    if flight.to_there not in seen_to:
-                        seen_to.add(flight.to_there)
-                        to_there_data.append({
-                            "id": flight.id,
-                            "to_there": flight.to_there,
-                            "arrival_airport_name": flight.arrival_airport_name,
-                            "arrival_airport_short_name": flight.arrival_airport_short_name,
-                        })
+                if sched.to_there not in seen_to:
+                    seen_to.add(sched.to_there)
+                    to_there_data.append({
+                        "to_there": sched.to_there,
+                        "arrival_airport_name": sched.arrival_airport_name,
+                        "arrival_airport_short_name": sched.arrival_airport_short_name,
+                    })
 
-                return Response({
-                    "from_here": from_here_data,
-                    "to_there": to_there_data
-                })
-                
+            return Response({
+                "from_here": from_here_data,
+                "to_there": to_there_data
+            })      
 
 
 

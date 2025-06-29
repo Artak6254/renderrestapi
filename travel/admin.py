@@ -71,13 +71,19 @@ class BookTicketsAdmin(admin.ModelAdmin):
 
 @admin.register(SoldFlightArchive)
 class SoldFlightArchiveAdmin(admin.ModelAdmin):
-    actions = ['export_sold_archive_with_passengers']
+    actions = ['export_ticket_data_as_xml']
 
     list_display = (
         'flight_from', 'flight_to', 'flight_departure_date', 'flight_return_date',
         'departure_time', 'arrival_time', 'total_price', 'total_passengers',
     )
-
+    
+    
+    date_hierarchy = 'flight_departure_date'
+    list_filter = (
+        ('flight_departure_date', DateRangeFilter),
+        ('flight_return_date', DateRangeFilter),
+    )
     formfield_overrides = {
         JSONField: {'widget': Textarea(attrs={'rows': 10, 'cols': 100})}
     }
@@ -129,47 +135,39 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
 
     exclude = ()
 
-    @admin.action(description="📤 Export All Passenger Data as CSV")
-    def export_sold_archive_with_passengers(self, request, queryset):
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="sold_flight_archive.csv"'
-        response.write('\ufeff')  # Excel BOM
+    @admin.action(description="📤 Export Tickets as XML")
+    def export_ticket_data_as_xml(self, request, queryset):
+        from xml.etree.ElementTree import Element, SubElement, tostring
+        from xml.dom import minidom
 
-        writer = csv.writer(response, delimiter=';')
-        headers = [
-            'Flight From', 'Flight To', 'Departure Date', 'Return Date',
-            'Departure Time', 'Arrival Time', 'Total Price',
-            'Ticket Number', 'Ticket Type', 'Ticket Is Sold',
-            'Passenger Full Name', 'Passport Serial', 'Title',
-            'Date of Birth', 'Citizenship', 'Phone', 'Email', 'Price', 'Passenger Type'
-        ]
-        writer.writerow(headers)
+        root = Element("SoldFlightArchives")
 
         for archive in queryset:
-            passengers = archive.passengers_data or []
-            for p in passengers:
-                writer.writerow([
-                    archive.flight_from,
-                    archive.flight_to,
-                    archive.flight_departure_date.strftime('%d-%m-%Y') if archive.flight_departure_date else '',
-                    archive.flight_return_date.strftime('%d-%m-%Y') if archive.flight_return_date else '',
-                    archive.departure_time,
-                    archive.arrival_time,
-                    archive.total_price,
-                    p.get('ticket_number', ''),
-                    p.get('ticket_type', ''),
-                    p.get('ticket_is_sold', ''),
-                    p.get('name', ''),
-                     p.get('surname', ''),
-                    p.get('passport_serial', ''),
-                    p.get('title', ''),
-                    p.get('date_of_birth', ''),
-                    p.get('citizenship', ''),
-                    p.get('phone', ''),
-                    p.get('email', ''),
-                    p.get('price', ''),
-                    p.get('passenger_type', ''),
-                ])
+            archive_elem = SubElement(root, "SoldFlightArchive")
+            SubElement(archive_elem, "FlightFrom").text = archive.flight_from
+            SubElement(archive_elem, "FlightTo").text = archive.flight_to
+            SubElement(archive_elem, "DepartureDate").text = archive.flight_departure_date.strftime('%Y-%m-%d') if archive.flight_departure_date else ''
+            SubElement(archive_elem, "ReturnDate").text = archive.flight_return_date.strftime('%Y-%m-%d') if archive.flight_return_date else ''
+            SubElement(archive_elem, "DepartureTime").text = archive.departure_time
+            SubElement(archive_elem, "ArrivalTime").text = archive.arrival_time
+            SubElement(archive_elem, "TotalPrice").text = str(archive.total_price)
+
+            tickets_elem = SubElement(archive_elem, "Tickets")
+            for t in archive.ticket_data or []:
+                ticket_elem = SubElement(tickets_elem, "Ticket")
+                SubElement(ticket_elem, "TicketID").text = str(t.get("ticket_id", ""))
+                SubElement(ticket_elem, "TicketNumber").text = t.get("ticket_number", "")
+                SubElement(ticket_elem, "TicketType").text = t.get("ticket_type", "")
+                SubElement(ticket_elem, "Price").text = str(t.get("price", ""))
+                SubElement(ticket_elem, "TicketIsSold").text = str(t.get("ticket_is_sold", ""))
+
+        # Pretty print the XML
+        rough_string = tostring(root, encoding='utf-8')
+        reparsed = minidom.parseString(rough_string)
+        pretty_xml = reparsed.toprettyxml(indent="  ")
+
+        response = HttpResponse(pretty_xml, content_type='application/xml')
+        response['Content-Disposition'] = 'attachment; filename="tickets_export.xml"'
         return response
 
     def display_passenger_table(self, obj):
@@ -343,8 +341,6 @@ class SoldFlightArchiveAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    def has_delete_permission(self, request, obj=None):
-        return False  # Optional՝ չթույլատրել ջնջել նույնպես
 
 
 
